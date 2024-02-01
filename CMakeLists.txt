@@ -57,3 +57,7 @@ endif((NOT JSONCPP_FOUND))
 if (WIN32)
     target_link_libraries(APCpp ws2_32)
 endif(WIN32)
+
+# APSudoku setup
+add_executable(APSudoku APSudoku.cpp)
+target_link_libraries(APSudoku PUBLIC APCpp)
