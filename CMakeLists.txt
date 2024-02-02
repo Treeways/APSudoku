@@ -59,5 +59,25 @@ if (WIN32)
 endif(WIN32)
 
 # APSudoku setup
+project(APSudoku)
 add_executable(APSudoku APSudoku.cpp)
-target_link_libraries(APSudoku PUBLIC APCpp)
+
+option(WANT_TESTS "" OFF)
+option(WANT_EXAMPLES "" OFF)
+option(WANT_DEMO "" OFF)
+option(WANT_DOCS "" OFF)
+option(WANT_IMAGE_WEBP "" OFF)
+option(WANT_OPUS "" OFF)
+add_subdirectory(allegro5 EXCLUDE_FROM_ALL)
+target_include_directories(APSudoku PUBLIC
+	allegro5/include
+	build/allegro5/include
+	allegro5/addons/primitives
+	allegro5/addons/font
+	allegro5/addons/main
+	allegro5/addons/color
+	)
+set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT APSudoku)
+
+target_link_libraries(APSudoku PUBLIC APCpp allegro allegro_main allegro_primitives allegro_font)
+
