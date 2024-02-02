@@ -50,7 +50,7 @@ namespace Sudoku
 			for(Cell* c : cells)
 			{
 				if(dupes.contains(c->val))
-					c->flags |= FL_INVALID;
+					c->flags |= CFL_INVALID;
 			}
 		}
 		return ret;
@@ -88,10 +88,10 @@ namespace Sudoku
 	{
 		for(Cell& c : cells)
 		{
-			c.flags &= ~FL_INVALID;
+			c.flags &= ~CFL_INVALID;
 		}
 	}
-	void Grid::draw(u16 x, u16 y) const
+	void Grid::draw() const
 	{
 		for(u8 q = 0; q < 9*9; ++q)
 			cells[q].draw(x + ((q%9)*CELL_SZ), y + ((q/9)*CELL_SZ));
@@ -102,5 +102,8 @@ namespace Sudoku
 			al_draw_rectangle(tx , ty, tx+CELL_SZ*3-1, ty+CELL_SZ*3-1, C_BLACK, 2);
 		}
 	}
+	Grid::Grid(u16 X, u16 Y)
+		: x(X), y(Y)
+	{}
 }
 

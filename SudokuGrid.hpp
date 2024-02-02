@@ -12,8 +12,8 @@ namespace Sudoku
 	#define PS_WRONG      0b0100 //A cell conflicts with the solution
 	
 	// Flags for cells
-	#define FL_GIVEN      0b0001
-	#define FL_INVALID    0b0010
+	#define CFL_GIVEN      0b0001
+	#define CFL_INVALID    0b0010
 	
 	struct Cell;
 	struct Region;
@@ -48,6 +48,7 @@ namespace Sudoku
 	};
 	struct Grid
 	{
+		u16 x, y;
 		Cell cells[9*9];
 		
 		Region get_row(u8 ind);
@@ -55,7 +56,8 @@ namespace Sudoku
 		Region get_box(u8 ind);
 		
 		void clear_invalid();
-		void draw(u16 x, u16 y) const;
+		void draw() const;
+		Grid(u16 X, u16 Y);
 	};
 	
 	class sudoku_exception : public std::exception

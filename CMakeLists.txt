@@ -71,7 +71,11 @@ option(WANT_DEMO "" OFF)
 option(WANT_DOCS "" OFF)
 option(WANT_IMAGE_WEBP "" OFF)
 option(WANT_OPUS "" OFF)
-add_subdirectory(allegro5 EXCLUDE_FROM_ALL)
+option(WANT_VIDEO "" OFF)
+option(WANT_FONT "" ON)
+option(WANT_TTF "" ON)
+option(WANT_PRIMITIVES "" ON)
+add_subdirectory(allegro5)
 target_include_directories(APSudoku PUBLIC
 	allegro5/include
 	build/allegro5/include
@@ -79,8 +83,11 @@ target_include_directories(APSudoku PUBLIC
 	allegro5/addons/font
 	allegro5/addons/main
 	allegro5/addons/color
+	allegro5/addons/ttf
 	)
 set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT APSudoku)
 
-target_link_libraries(APSudoku PUBLIC APCpp allegro allegro_main allegro_primitives allegro_font)
+target_link_libraries(APSudoku PUBLIC APCpp allegro allegro_main allegro_primitives allegro_font allegro_ttf)
 
+
+# cmake .. -DWIN32=1 -DUSE_ZLIB=OFF
