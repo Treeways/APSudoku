@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.4)
 
 project(APCpp)
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
@@ -60,7 +60,10 @@ endif(WIN32)
 
 # APSudoku setup
 project(APSudoku)
-add_executable(APSudoku APSudoku.cpp)
+add_executable(APSudoku
+	SudokuGUI.cpp
+	SudokuGrid.cpp
+	)
 
 option(WANT_TESTS "" OFF)
 option(WANT_EXAMPLES "" OFF)

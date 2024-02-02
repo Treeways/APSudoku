@@ -1,10 +1,7 @@
 #include "Archipelago.h"
-#include <allegro5/allegro.h>
-#include <allegro5/allegro_primitives.h>
-#include <allegro5/allegro_font.h>
 #include <iostream>
-#include <string>
-using std::string;
+#include "SudokuGUI.hpp"
+#include "SudokuGrid.hpp"
 
 void log(string const& msg)
 {
@@ -21,15 +18,9 @@ ALLEGRO_BITMAP* canvas;
 ALLEGRO_TIMER *timer;
 ALLEGRO_EVENT_QUEUE *events;
 ALLEGRO_EVENT_SOURCE event_source;
+Sudoku::Grid grid;
 #define CANVAS_W 640
 #define CANVAS_H 480
-
-ALLEGRO_COLOR
-	C_WHITE = al_map_rgb(255,255,255),
-	C_BLACK = al_map_rgb(0,0,0);
-	;
-
-#define C_BG C_WHITE
 
 void clear_a5_bmp(ALLEGRO_COLOR col, ALLEGRO_BITMAP* bmp = nullptr)
 {
@@ -53,7 +44,7 @@ void draw()
 	
 	al_set_target_bitmap(canvas);
 	clear_a5_bmp(C_BG);
-	al_draw_filled_rectangle(40, 40, 64, 64, C_BLACK);
+	grid.draw(32,32);
 	
 	al_restore_state(&oldstate);
 }
