@@ -34,12 +34,17 @@ namespace Sudoku
 		ALLEGRO_COLOR c_border = C_LGRAY;
 		ALLEGRO_COLOR c_text = C_TXT;
 		ALLEGRO_COLOR c_sel = C_HIGHLIGHT;
+		ALLEGRO_COLOR c_sel2 = C_HIGHLIGHT2;
 		
 		void clear();
 		void clear_marks();
+		void clear_marks(EntryMode m);
+		EntryMode current_mode() const;
 		
 		void draw(u16 x, u16 y, u16 w, u16 h) const;
-		void draw_sel(u16 x, u16 y, u16 w, u16 h, u8 hlbits) const;
+		void draw_sel(u16 x, u16 y, u16 w, u16 h, u8 hlbits, bool special) const;
+		
+		void enter(EntryMode m, u8 val);
 	};
 	struct Region
 	{
@@ -49,7 +54,7 @@ namespace Sudoku
 		Region() = default;
 		friend struct Grid;
 	};
-	struct Grid : public MouseObject
+	struct Grid : public InputObject
 	{
 		Cell cells[9*9];
 		
@@ -58,9 +63,11 @@ namespace Sudoku
 		Region get_box(u8 ind);
 		Cell* get(u8 row, u8 col);
 		Cell* get_hov();
+		optional<u8> find(Cell* c);
 		
 		void clear_invalid();
-		void draw() const;
+		void draw() const override;
+		void key_event(ALLEGRO_EVENT const& ev) override;
 		
 		void deselect();
 		void select(Cell* c);
@@ -69,6 +76,7 @@ namespace Sudoku
 		Grid(u16 X, u16 Y);
 	private:
 		set<Cell*> selected;
+		Cell* focus_cell;
 	};
 	
 	class sudoku_exception : public std::exception

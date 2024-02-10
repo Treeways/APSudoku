@@ -8,13 +8,31 @@ namespace Sudoku
 	}
 	void Cell::clear_marks()
 	{
-		if(val)
-			val = 0;
-		else
+		clear_marks(current_mode());
+	}
+	void Cell::clear_marks(EntryMode m)
+	{
+		switch(m)
 		{
-			memset(center_marks, 0, sizeof(center_marks));
-			memset(corner_marks, 0, sizeof(corner_marks));
+			case ENT_ANSWER:
+				val = 0;
+				break;
+			case ENT_CENTER:
+				memset(center_marks, 0, sizeof(center_marks));
+				break;
+			case ENT_CORNER:
+				memset(corner_marks, 0, sizeof(corner_marks));
+				break;
 		}
+	}
+	EntryMode Cell::current_mode() const
+	{
+		if(val)
+			return ENT_ANSWER;
+		for(int q = 0; q < 9; ++q)
+			if(center_marks[q])
+				return ENT_CENTER;
+		return ENT_CORNER;
 	}
 	void Cell::draw(u16 X, u16 Y, u16 W, u16 H) const
 	{
@@ -65,11 +83,18 @@ namespace Sudoku
 			}
 		}
 	}
-	void Cell::draw_sel(u16 X, u16 Y, u16 W, u16 H, u8 hlbits) const
+	void Cell::draw_sel(u16 X, u16 Y, u16 W, u16 H, u8 hlbits, bool special) const
 	{
+		u16 HLW = 4, HLH = 4;
+		ALLEGRO_COLOR const* col = &c_sel;
+		if(special)
+		{
+			col = &c_sel2;
+			HLW = 2; HLH = 2;
+			hlbits = ~0;
+		}
 		if(!hlbits)
 			return;
-		u16 HLW = 4, HLH = 4;
 		scale_pos(HLW, HLH);
 		for(u8 q = 0; q < NUM_DIRS; ++q)
 		{
@@ -106,51 +131,51 @@ namespace Sudoku
 				switch(q)
 				{
 					case DIR_UP:
-						al_draw_filled_rectangle(TX, TY, TX+TW-1, TY+HLH-1, c_sel);
+						al_draw_filled_rectangle(TX, TY, TX+TW-1, TY+HLH-1, *col);
 						hlbits &= ~((1<<DIR_UPLEFT)|(1<<DIR_UPRIGHT));
 						break;
 					case DIR_DOWN:
-						al_draw_filled_rectangle(TX, TY+TH-HLH, TX+TW-1, TY+TH-1, c_sel);
+						al_draw_filled_rectangle(TX, TY+TH-HLH, TX+TW-1, TY+TH-1, *col);
 						hlbits &= ~((1<<DIR_DOWNLEFT)|(1<<DIR_DOWNRIGHT));
 						break;
 					case DIR_LEFT:
-						al_draw_filled_rectangle(TX, TY, TX+HLW-1, TY+TH-1, c_sel);
+						al_draw_filled_rectangle(TX, TY, TX+HLW-1, TY+TH-1, *col);
 						hlbits &= ~((1<<DIR_UPLEFT)|(1<<DIR_DOWNLEFT));
 						break;
 					case DIR_RIGHT:
-						al_draw_filled_rectangle(TX+TW-HLW, TY, TX+TW-1, TY+TH-1, c_sel);
+						al_draw_filled_rectangle(TX+TW-HLW, TY, TX+TW-1, TY+TH-1, *col);
 						hlbits &= ~((1<<DIR_UPRIGHT)|(1<<DIR_DOWNRIGHT));
 						break;
 					case DIR_UPLEFT:
 					{
 						u16 TX2 = TX-HLW, TWOFF = HLW;
 						u16 TY2 = TY-HLH, THOFF = HLH;
-						al_draw_filled_rectangle(TX2, TY, TX2+TWOFF+HLW-1, TY+HLH-1, c_sel);
-						al_draw_filled_rectangle(TX, TY2, TX+HLW-1, TY2+THOFF+HLH-1, c_sel);
+						al_draw_filled_rectangle(TX2, TY, TX2+TWOFF+HLW-1, TY+HLH-1, *col);
+						al_draw_filled_rectangle(TX, TY2, TX+HLW-1, TY2+THOFF+HLH-1, *col);
 						break;
 					}
 					case DIR_UPRIGHT:
 					{
 						u16 TX2 = TX, TWOFF = HLW;
 						u16 TY2 = TY-HLH, THOFF = HLH;
-						al_draw_filled_rectangle(TX2+TW-HLW, TY, TX2+TWOFF+TW-1, TY+HLH-1, c_sel);
-						al_draw_filled_rectangle(TX+TW-HLW, TY2, TX+TW-1, TY2+THOFF+HLH-1, c_sel);
+						al_draw_filled_rectangle(TX2+TW-HLW, TY, TX2+TWOFF+TW-1, TY+HLH-1, *col);
+						al_draw_filled_rectangle(TX+TW-HLW, TY2, TX+TW-1, TY2+THOFF+HLH-1, *col);
 						break;
 					}
 					case DIR_DOWNLEFT:
 					{
 						u16 TX2 = TX-HLW, TWOFF = HLW;
 						u16 TY2 = TY, THOFF = HLH;
-						al_draw_filled_rectangle(TX2, TY+TH-HLH, TX2+TWOFF+HLW-1, TY+TH-1, c_sel);
-						al_draw_filled_rectangle(TX, TY2+TH-HLH, TX+HLW-1, TY2+THOFF+TH-1, c_sel);
+						al_draw_filled_rectangle(TX2, TY+TH-HLH, TX2+TWOFF+HLW-1, TY+TH-1, *col);
+						al_draw_filled_rectangle(TX, TY2+TH-HLH, TX+HLW-1, TY2+THOFF+TH-1, *col);
 						break;
 					}
 					case DIR_DOWNRIGHT:
 					{
 						u16 TX2 = TX, TWOFF = HLW;
 						u16 TY2 = TY, THOFF = HLH;
-						al_draw_filled_rectangle(TX2+TW-HLW, TY+TH-HLH, TX2+TWOFF+TW-1, TY+TH-1, c_sel);
-						al_draw_filled_rectangle(TX+TW-HLW, TY2+TH-HLH, TX+TW-1, TY2+THOFF+TH-1, c_sel);
+						al_draw_filled_rectangle(TX2+TW-HLW, TY+TH-HLH, TX2+TWOFF+TW-1, TY+TH-1, *col);
+						al_draw_filled_rectangle(TX+TW-HLW, TY2+TH-HLH, TX+TW-1, TY2+THOFF+TH-1, *col);
 						break;
 					}
 				}
@@ -158,6 +183,25 @@ namespace Sudoku
 		}
 	}
 	
+	void Cell::enter(EntryMode m, u8 v)
+	{
+		if(flags & CFL_GIVEN)
+			return;
+		switch(m)
+		{
+			case ENT_ANSWER:
+				if(val == v)
+					val = 0;
+				else val = v;
+				break;
+			case ENT_CENTER:
+				center_marks[v-1] = !center_marks[v-1];
+				break;
+			case ENT_CORNER:
+				corner_marks[v-1] = !corner_marks[v-1];
+				break;
+		}
+	}
 	PuzzleState Region::check() const
 	{
 		PuzzleState ret = PS_SOLVED;
@@ -227,28 +271,32 @@ namespace Sudoku
 	}
 	Cell* Grid::get_hov()
 	{
-		u8 col = (mouse_state.x - x) / CELL_SZ;
-		u8 row = (mouse_state.y - y) / CELL_SZ;
+		u8 col = (input_state.x - x) / CELL_SZ;
+		u8 row = (input_state.y - y) / CELL_SZ;
 		return get(row,col);
 	}
-	
+	optional<u8> Grid::find(Cell* c)
+	{
+		for(u8 q = 0; q < 9*9; ++q)
+			if(c == &cells[q])
+				return q;
+		return nullopt;
+	}
 	
 	void Grid::deselect()
 	{
 		for(Cell* c : selected)
 			c->flags &= ~CFL_SELECTED;
 		selected.clear();
+		focus_cell = nullptr;
 	}
 	void Grid::select(Cell* c)
 	{
-		bool found = false;
-		for(int q = 0; q < 9*9; ++q)
-			if((found = (c == &cells[q])))
-				break;
-		if(!found)
+		if(!find(c))
 			throw sudoku_exception("Cannot select cell not from this grid!");
 		selected.insert(c);
 		c->flags |= CFL_SELECTED;
+		focus_cell = c;
 	}
 	void Grid::clear_invalid()
 	{
@@ -260,30 +308,36 @@ namespace Sudoku
 	void Grid::draw() const
 	{
 		bool sel[9*9] = {0};
+		optional<u8> focus_ind;
 		for(u8 q = 0; q < 9*9; ++q) // Map selected
 			sel[q] = (cells[q].flags & CFL_SELECTED) != 0;
 		//
 		for(u8 q = 0; q < 9*9; ++q) // Cell draws
 		{
-			u16 X = x + ((q%9)*CELL_SZ), Y = y + ((q/9)*CELL_SZ),
+			u16 X = x + ((q%9)*CELL_SZ),
+				Y = y + ((q/9)*CELL_SZ),
 				W = CELL_SZ, H = CELL_SZ;
 			scale_pos(X,Y,W,H);
 			cells[q].draw(X, Y, W, H);
 		}
 		for(u8 q = 0; q < 9; ++q) // 3x3 box thicker borders
 		{
-			u16 X = x + ((q%3)*(CELL_SZ*3)), Y = y + ((q/3)*(CELL_SZ*3)),
+			u16 X = x + ((q%3)*(CELL_SZ*3)),
+				Y = y + ((q/3)*(CELL_SZ*3)),
 				W = CELL_SZ*3, H = CELL_SZ*3;
 			scale_pos(X,Y,W,H);
 			al_draw_rectangle(X, Y, X+W-1, Y+H-1, C_BLACK, 2);
 		}
 		for(u8 q = 0; q < 9*9; ++q) // Selected cell highlights
 		{
-			u16 X = x + ((q%9)*CELL_SZ), Y = y + ((q/9)*CELL_SZ),
+			u16 X = x + ((q%9)*CELL_SZ),
+				Y = y + ((q/9)*CELL_SZ),
 				W = CELL_SZ, H = CELL_SZ;
 			scale_pos(X,Y,W,H);
 			u8 hlbits = 0;
 			Cell const& c = cells[q];
+			if(&c == focus_cell)
+				focus_ind = q;
 			if(c.flags & CFL_SELECTED)
 			{
 				bool u,d,l,r;
@@ -304,11 +358,125 @@ namespace Sudoku
 				if(!(d&&r) || !sel[q+9+1])
 					hlbits |= 1<<DIR_DOWNRIGHT;
 			}
-			c.draw_sel(X, Y, W, H, hlbits);
+			c.draw_sel(X, Y, W, H, hlbits, false);
+		}
+		if(focus_ind && selected.size() > 1)
+		{
+			u8 q = *focus_ind;
+			u16 X = x + ((q%9)*CELL_SZ),
+				Y = y + ((q/9)*CELL_SZ),
+				W = CELL_SZ, H = CELL_SZ;
+			scale_pos(X,Y,W,H);
+			focus_cell->draw_sel(X, Y, W, H, 0, true);
+		}
+	}
+	void Grid::key_event(ALLEGRO_EVENT const& ev)
+	{
+		bool shift = input_state.shift();
+		bool ctrl_cmd = input_state.ctrl_cmd();
+		bool alt = input_state.alt();
+		switch(ev.type)
+		{
+			case ALLEGRO_EVENT_KEY_DOWN:
+			{
+				u8 input_num = 0;
+				switch(ev.keyboard.keycode)
+				{
+					case ALLEGRO_KEY_1:
+					case ALLEGRO_KEY_2:
+					case ALLEGRO_KEY_3:
+					case ALLEGRO_KEY_4:
+					case ALLEGRO_KEY_5:
+					case ALLEGRO_KEY_6:
+					case ALLEGRO_KEY_7:
+					case ALLEGRO_KEY_8:
+					case ALLEGRO_KEY_9:
+					{
+						input_num = ev.keyboard.keycode-ALLEGRO_KEY_0;
+						break;
+					}
+					case ALLEGRO_KEY_PAD_1:
+					case ALLEGRO_KEY_PAD_2:
+					case ALLEGRO_KEY_PAD_3:
+					case ALLEGRO_KEY_PAD_4:
+					case ALLEGRO_KEY_PAD_5:
+					case ALLEGRO_KEY_PAD_6:
+					case ALLEGRO_KEY_PAD_7:
+					case ALLEGRO_KEY_PAD_8:
+					case ALLEGRO_KEY_PAD_9:
+					{
+						input_num = ev.keyboard.keycode-ALLEGRO_KEY_PAD_0;
+						break;
+					}
+					case ALLEGRO_KEY_UP: case ALLEGRO_KEY_W:
+					case ALLEGRO_KEY_DOWN: case ALLEGRO_KEY_S:
+					case ALLEGRO_KEY_LEFT: case ALLEGRO_KEY_A:
+					case ALLEGRO_KEY_RIGHT: case ALLEGRO_KEY_D:
+						if(optional<u8> o_ind = find(focus_cell))
+						{
+							u8 ind = *o_ind;
+							if(!shift)
+								deselect();
+							switch(ev.keyboard.keycode)
+							{
+								case ALLEGRO_KEY_UP: case ALLEGRO_KEY_W:
+									if(ind >= 9)
+										ind -= 9;
+									break;
+								case ALLEGRO_KEY_DOWN: case ALLEGRO_KEY_S:
+									if(ind <= 9*9-9)
+										ind += 9;
+									break;
+								case ALLEGRO_KEY_LEFT: case ALLEGRO_KEY_A:
+									if(ind % 9)
+										--ind;
+									break;
+								case ALLEGRO_KEY_RIGHT: case ALLEGRO_KEY_D:
+									if((ind % 9) < 8)
+										++ind;
+									break;
+							}
+							select(&cells[ind]);
+						}
+						break;
+					case ALLEGRO_KEY_DELETE:
+					case ALLEGRO_KEY_BACKSPACE:
+						if(!selected.empty())
+						{
+							EntryMode m = NUM_ENT;
+							for(Cell* c : selected)
+							{
+								if(c->flags & CFL_GIVEN)
+									continue;
+								EntryMode m2 = c->current_mode();
+								if(m2 < m)
+									m = m2;
+							}
+							for(Cell* c : selected)
+							{
+								if(c->flags & CFL_GIVEN)
+									continue;
+								c->clear_marks(m);
+							}
+						}
+						break;
+				}
+				if(input_num && !selected.empty())
+				{
+					auto m = get_mode();
+					for(Cell* c : selected)
+						c->enter(m, input_num);
+				}
+				break;
+			}
+			case ALLEGRO_EVENT_KEY_UP:
+				break;
+			case ALLEGRO_EVENT_KEY_CHAR:
+				break;
 		}
 	}
 	Grid::Grid(u16 X, u16 Y)
-		: MouseObject(X,Y,9*CELL_SZ,9*CELL_SZ)
+		: InputObject(X,Y,9*CELL_SZ,9*CELL_SZ)
 	{}
 }
 

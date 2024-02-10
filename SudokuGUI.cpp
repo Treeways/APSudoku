@@ -28,6 +28,40 @@ int render_resx = CANVAS_W, render_resy = CANVAS_H;
 int render_scalew = CANVAS_W, render_scaleh = CANVAS_H;
 int render_xoff = 0, render_yoff = 0;
 
+EntryMode mode = ENT_ANSWER;
+EntryMode get_mode()
+{
+	if(input_state.shift())
+		return ENT_CORNER;
+	if(input_state.ctrl_cmd())
+		return ENT_CENTER;
+	if(input_state.alt())
+		return ENT_ANSWER;
+	return mode;
+}
+bool InputState::shift() const
+{
+	ALLEGRO_KEYBOARD_STATE st;
+	al_get_keyboard_state(&st);
+	return (al_key_down(&st,ALLEGRO_KEY_LSHIFT)
+		|| al_key_down(&st,ALLEGRO_KEY_RSHIFT));
+}
+bool InputState::ctrl_cmd() const
+{
+	ALLEGRO_KEYBOARD_STATE st;
+	al_get_keyboard_state(&st);
+	return (al_key_down(&st,ALLEGRO_KEY_LCTRL)
+		|| al_key_down(&st,ALLEGRO_KEY_RCTRL)
+		|| al_key_down(&st,ALLEGRO_KEY_COMMAND));
+}
+bool InputState::alt() const
+{
+	ALLEGRO_KEYBOARD_STATE st;
+	al_get_keyboard_state(&st);
+	return (al_key_down(&st,ALLEGRO_KEY_ALT)
+		|| al_key_down(&st,ALLEGRO_KEY_ALTGR));
+}
+
 #define GRID_X (32)
 #define GRID_Y (32)
 Sudoku::Grid grid { GRID_X, GRID_Y };
@@ -134,10 +168,11 @@ void build_gui()
 				{
 					case MOUSE_LCLICK:
 						ret |= MRET_TAKEFOCUS;
-						grid.deselect();
+						if(!input_state.shift())
+							grid.deselect();
 					[[fallthrough]];
 					case MOUSE_LDOWN:
-						if((ret & MRET_TAKEFOCUS) || mouse_state.focused == &grid)
+						if((ret & MRET_TAKEFOCUS) || input_state.focused == &grid)
 						{
 							if(Cell* c = grid.get_hov())
 								grid.select(c);
@@ -152,14 +187,14 @@ void build_gui()
 		gui_objects[SCR_SUDOKU].push_back(&grid);
 	}
 	{ //BG, to allow 'clicking off'
-		static MouseObject bg(0,0,CANVAS_W,CANVAS_H);
+		static InputObject bg(0,0,CANVAS_W,CANVAS_H);
 		bg.onMouse = [](MouseEvent e)
 			{
-				if(e == MOUSE_LCLICK && mouse_state.focused)
+				if(e == MOUSE_LCLICK && input_state.focused)
 				{
-					u32 newret = mouse_state.focused->onMouse(MOUSE_LOSTFOCUS);
+					u32 newret = input_state.focused->onMouse(MOUSE_LOSTFOCUS);
 					if(!(newret & MRET_TAKEFOCUS))
-						mouse_state.focused = nullptr;
+						input_state.focused = nullptr;
 				}
 				return MRET_OK;
 			};
@@ -170,35 +205,32 @@ void build_gui()
 
 void __run_mouse()
 {
-	for(DrawnObject* obj : gui_objects[NUM_SCRS])
-		if(obj->mouse())
-			return;
 	for(DrawnObject* obj : gui_objects[curscr])
 		if(obj->mouse())
 			return;
 }
-MouseState mouse_state;
+InputState input_state;
 void run()
 {
-	al_get_mouse_state(&mouse_state);
-	auto buttons = mouse_state.buttons;
-	auto os = mouse_state.oldstate & 0x7;
+	al_get_mouse_state(&input_state);
+	auto buttons = input_state.buttons;
+	auto os = input_state.oldstate & 0x7;
 	
 	if(buttons & os) //Remember the held state
 		buttons &= os;
 	
-	mouse_state.buttons &= ~0x7;
+	input_state.buttons &= ~0x7;
 	if(buttons & 0x1)
-		mouse_state.buttons |= 0x1;
+		input_state.buttons |= 0x1;
 	else if(buttons & 0x2)
-		mouse_state.buttons |= 0x2;
+		input_state.buttons |= 0x2;
 	else if(buttons & 0x4)
-		mouse_state.buttons |= 0x4;
+		input_state.buttons |= 0x4;
 	
 	//Mouse coordinates are based on the 'display'
 	//Scale down the x/y before running mouse logic:
-	auto &x = mouse_state.x;
-	auto &y = mouse_state.y;
+	auto &x = input_state.x;
+	auto &y = input_state.y;
 	x -= render_xoff;
 	y -= render_yoff;
 	x /= render_xscale;
@@ -207,7 +239,7 @@ void run()
 	//
 	__run_mouse();
 	
-	mouse_state.oldstate = mouse_state.buttons;
+	input_state.oldstate = input_state.buttons;
 }
 
 void draw()
@@ -304,6 +336,8 @@ int main(int argc, char **argv)
 		switch(ev.type)
 		{
 			case ALLEGRO_EVENT_TIMER:
+			case ALLEGRO_EVENT_MOUSE_BUTTON_DOWN:
+			case ALLEGRO_EVENT_MOUSE_BUTTON_UP:
 				redraw = true;
 				break;
 			case ALLEGRO_EVENT_DISPLAY_CLOSE:
@@ -314,13 +348,19 @@ int main(int argc, char **argv)
 				on_resize();
 				redraw = true;
 				break;
+			case ALLEGRO_EVENT_KEY_DOWN:
+			case ALLEGRO_EVENT_KEY_UP:
+			case ALLEGRO_EVENT_KEY_CHAR:
+				if(input_state.focused)
+					input_state.focused->key_event(ev);
+				break;
 		}
 	}
 	
 	return 0;
 }
 
-void MouseObject::unhover()
+void InputObject::unhover()
 {
 	if(!onMouse) return;
 	
@@ -329,12 +369,12 @@ void MouseObject::unhover()
 		mouseflags &= ~MFL_HASMOUSE;
 		process(onMouse(MOUSE_HOVER_EXIT));
 	}
-	if(mouse_state.hovered == this)
-		mouse_state.hovered = nullptr;
+	if(input_state.hovered == this)
+		input_state.hovered = nullptr;
 }
-void MouseObject::process(u32 retcode)
+void InputObject::process(u32 retcode)
 {
-	auto& m = mouse_state;
+	auto& m = input_state;
 	if(retcode & MRET_TAKEFOCUS)
 	{
 		if(m.focused && m.focused != this)
@@ -346,9 +386,9 @@ void MouseObject::process(u32 retcode)
 		else m.focused = this;
 	}
 }
-bool MouseObject::mouse()
+bool InputObject::mouse()
 {
-	auto& m = mouse_state;
+	auto& m = input_state;
 	bool inbounds = (m.x >= x && m.x < x+w) && (m.y >= y && m.y < y+h);
 	if(!onMouse)
 		return inbounds;
@@ -418,13 +458,13 @@ void Button::draw() const
 }
 
 Button::Button()
-	: MouseObject(0, 0, 96, 32)
+	: InputObject(0, 0, 96, 32), flags(0)
 {}
 Button::Button(string const& txt, u16 X, u16 Y)
-	: MouseObject(X, Y, 96, 32), text(txt)
+	: InputObject(X, Y, 96, 32), flags(0), text(txt)
 {}
 Button::Button(string const& txt, u16 X, u16 Y, u16 W, u16 H)
-	: MouseObject(X, Y, W, H), text(txt)
+	: InputObject(X, Y, W, H), flags(0), text(txt)
 {}
 
 
@@ -499,6 +539,7 @@ void setup_allegro()
 	al_register_event_source(events, &event_source);
 	al_register_event_source(events, al_get_display_event_source(display));
 	al_register_event_source(events, al_get_timer_event_source(timer));
+	al_register_event_source(events, al_get_keyboard_event_source());
 	
 	al_set_window_constraints(display, CANVAS_W, CANVAS_H, 0, 0);
 	al_apply_window_constraints(display, true);

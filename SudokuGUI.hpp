@@ -8,6 +8,7 @@
 #include <vector>
 #include <set>
 #include <string>
+#include <optional>
 #include <functional>
 #include <stdint.h>
 typedef uint8_t u8;
@@ -19,6 +20,8 @@ using std::set;
 using std::map;
 using std::vector;
 using std::to_string;
+using std::optional;
+using std::nullopt;
 
 enum Screen
 {
@@ -37,6 +40,15 @@ enum Font
 	FONT_MARKING9,
 	NUM_FONTS
 };
+enum EntryMode
+{
+	ENT_ANSWER,
+	ENT_CENTER,
+	ENT_CORNER,
+	NUM_ENT
+};
+extern EntryMode mode;
+EntryMode get_mode();
 
 extern ALLEGRO_FONT* fonts[NUM_FONTS];
 
@@ -49,6 +61,7 @@ inline ALLEGRO_COLOR
 	, C_MGRAY = al_map_rgb(128, 128, 128)
 	, C_DGRAY = al_map_rgb(64, 64, 64)
 	, C_HIGHLIGHT = al_map_rgb(76, 164, 255)
+	, C_HIGHLIGHT2 = al_map_rgb(255, 164, 76)
 	;
 
 enum direction
@@ -96,30 +109,31 @@ struct DrawnObject
 	u16 x, y;
 	virtual void draw() const {};
 	virtual bool mouse() {return false;}
+	virtual void key_event(ALLEGRO_EVENT const& ev) {}
 	DrawnObject() = default;
 	DrawnObject(u16 x, u16 y) : x(x), y(y) {}
 };
 
-struct MouseObject : public DrawnObject
+struct InputObject : public DrawnObject
 {
 	u16 w, h;
 	u8 mouseflags;
 	std::function<u32(MouseEvent)> onMouse;
 	bool mouse() override;
 	void unhover();
-	MouseObject() = default;
-	MouseObject(u16 x, u16 y)
+	InputObject() = default;
+	InputObject(u16 x, u16 y)
 		: DrawnObject(x, y), w(0), h(0), mouseflags(0), onMouse() {}
-	MouseObject(u16 x, u16 y, u16 w, u16 h)
+	InputObject(u16 x, u16 y, u16 w, u16 h)
 		: DrawnObject(x, y), w(w), h(h), mouseflags(0), onMouse() {}
 private:
 	void process(u32 retcode);
 };
-struct MouseState : public ALLEGRO_MOUSE_STATE
+struct InputState : public ALLEGRO_MOUSE_STATE
 {
 	int oldstate = 0;
-	MouseObject* hovered = nullptr;
-	MouseObject* focused = nullptr;
+	InputObject* hovered = nullptr;
+	InputObject* focused = nullptr;
 	
 	bool lclick() const {return (buttons&0x7) == 0x1 && !(oldstate&0x7);}
 	bool rclick() const {return (buttons&0x7) == 0x2 && !(oldstate&0x7);}
@@ -127,13 +141,16 @@ struct MouseState : public ALLEGRO_MOUSE_STATE
 	bool lrelease() const {return !(buttons&0x1) && (oldstate&0x7) == 0x1;}
 	bool rrelease() const {return !(buttons&0x2) && (oldstate&0x7) == 0x2;}
 	bool mrelease() const {return !(buttons&0x4) && (oldstate&0x7) == 0x4;}
+	bool shift() const;
+	bool ctrl_cmd() const;
+	bool alt() const;
 };
-extern MouseState mouse_state;
+extern InputState input_state;
 
 #define FL_SELECTED 0b00000001
 #define FL_DISABLED 0b00000010
 #define FL_HOVERED  0b00000100
-struct Button : public MouseObject
+struct Button : public InputObject
 {
 	string text;
 	ALLEGRO_COLOR c_txt = C_BLACK;
