@@ -22,6 +22,12 @@ ALLEGRO_TIMER* timer;
 ALLEGRO_EVENT_QUEUE* events;
 ALLEGRO_EVENT_SOURCE event_source;
 ALLEGRO_FONT* fonts[NUM_FONTS];
+
+double render_xscale = 1, render_yscale = 1, render_scale = 1;
+int render_resx = CANVAS_W, render_resy = CANVAS_H;
+int render_scalew = CANVAS_W, render_scaleh = CANVAS_H;
+int render_xoff = 0, render_yoff = 0;
+
 #define GRID_X (32)
 #define GRID_Y (32)
 Sudoku::Grid grid { GRID_X, GRID_Y };
@@ -45,6 +51,37 @@ void clear_a5_bmp(ALLEGRO_COLOR col, ALLEGRO_BITMAP* bmp = nullptr)
 		al_restore_state(&old_state);
 	}
 	else al_clear_to_color(col);
+}
+
+
+void update_scale()
+{
+	render_resx = al_get_display_width(display);
+	render_resy = al_get_display_height(display);
+	
+	render_xscale = double(render_resx)/CANVAS_W;
+	render_yscale = double(render_resy)/CANVAS_H;
+	render_scale = std::min(render_xscale,render_yscale);
+}
+
+void scale_x(u16& x)
+{
+	x *= render_xscale;
+}
+void scale_y(u16& y)
+{
+	y *= render_yscale;
+}
+void scale_pos(u16& x, u16& y)
+{
+	x *= render_xscale;
+	y *= render_yscale;
+}
+void scale_pos(u16& x, u16& y, u16& w, u16& h)
+{
+	scale_pos(x,y);
+	w *= render_xscale;
+	h *= render_yscale;
 }
 
 void swap_screen(Screen scr)
@@ -158,7 +195,16 @@ void run()
 	else if(buttons & 0x4)
 		mouse_state.buttons |= 0x4;
 	
-	//!TODO Mouse coords are based on the display, not the canvas. Scale them before running the mouse!
+	//Mouse coordinates are based on the 'display'
+	//Scale down the x/y before running mouse logic:
+	auto &x = mouse_state.x;
+	auto &y = mouse_state.y;
+	x -= render_xoff;
+	y -= render_yoff;
+	x /= render_xscale;
+	y /= render_yscale;
+	
+	//
 	__run_mouse();
 	
 	mouse_state.oldstate = mouse_state.buttons;
@@ -172,13 +218,12 @@ void draw()
 	al_set_target_bitmap(canvas);
 	clear_a5_bmp(C_BG);
 	
-	for(DrawnObject* obj : gui_objects[NUM_SCRS])
-		obj->draw();
 	for(DrawnObject* obj : gui_objects[curscr])
 		obj->draw();
 	
 	al_restore_state(&oldstate);
 }
+
 void render()
 {
 	ALLEGRO_STATE oldstate;
@@ -187,23 +232,36 @@ void render()
 	al_set_target_backbuffer(display);
 	clear_a5_bmp(C_BG);
 	
-	int resx = al_get_display_width(display);
-	int resy = al_get_display_height(display);
-	
-	double xscale = resx/CANVAS_W, yscale = resy/CANVAS_H;
-	double scale = std::min(xscale,yscale);
-	int scaled_w = int(CANVAS_W*scale), scaled_h = int(CANVAS_H*scale);
-	int xoff = (resx-scaled_w)/2, yoff = (resy-scaled_h)/2;
-	
-	al_draw_scaled_bitmap(canvas, 0, 0, CANVAS_W, CANVAS_H, xoff, yoff, scaled_w, scaled_h, 0);
+	al_draw_bitmap(canvas, 0, 0, 0);
 	
 	al_flip_display();
+	
+	update_scale();
 	
 	al_restore_state(&oldstate);
 }
 
-void init_fonts();
+void init_grid()
+{
+	//!TODO this is just a test grid inserted on launch
+	for(int q = 0; q < 9; ++q)
+	{
+		Sudoku::Cell* c = grid.get(0,q);
+		c->val = q+1;
+		if(q%2)
+			c->flags |= CFL_GIVEN;
+		
+		c = grid.get(1,q);
+		for(int p = 0; p <= q; ++p)
+			c->center_marks[p] = true;
+		
+		c = grid.get(2,q);
+		for(int p = 0; p <= q; ++p)
+			c->corner_marks[p] = true;
+	}
+}
 void setup_allegro();
+void on_resize();
 int main(int argc, char **argv)
 {
 	log("Program Start");
@@ -224,6 +282,8 @@ int main(int argc, char **argv)
 	log("Building GUI...");
 	build_gui();
 	log("GUI built successfully, launch complete");
+	
+	init_grid();
 	
 	al_start_timer(timer);
 	bool redraw = true;
@@ -251,6 +311,8 @@ int main(int argc, char **argv)
 				break;
 			case ALLEGRO_EVENT_DISPLAY_RESIZE:
 				al_acknowledge_resize(display);
+				on_resize();
+				redraw = true;
 				break;
 		}
 	}
@@ -332,6 +394,9 @@ bool MouseObject::mouse()
 
 void Button::draw() const
 {
+	u16 X = x, Y = y, W = w, H = h;
+	scale_pos(X,Y,W,H);
+	
 	ALLEGRO_COLOR const* fg = &c_txt;
 	ALLEGRO_COLOR const* bg = &c_bg;
 	bool dis = flags&FL_DISABLED;
@@ -343,12 +408,12 @@ void Button::draw() const
 		bg = &c_hov_bg;
 	
 	// Fill the button
-	al_draw_filled_rectangle(x, y, x+w-1, y+h-1, *bg);
+	al_draw_filled_rectangle(X, Y, X+W-1, Y+H-1, *bg);
 	// Draw the border 
-	al_draw_rectangle(x, y, x+w-1, y+h-1, c_border, 1);
+	al_draw_rectangle(X, Y, X+W-1, Y+H-1, c_border, 1);
 	// Finally, the text
-	int tx = (x+w/2);
-	int ty = (y+h/2)-(al_get_font_line_height(fonts[FONT_BUTTON])/2);
+	int tx = (X+W/2);
+	int ty = (Y+H/2)-(al_get_font_line_height(fonts[FONT_BUTTON])/2);
 	al_draw_text(fonts[FONT_BUTTON], *fg, tx, ty, ALLEGRO_ALIGN_CENTRE, text.c_str());
 }
 
@@ -365,13 +430,37 @@ Button::Button(string const& txt, u16 X, u16 Y, u16 W, u16 H)
 
 
 
-void init_fonts()
+void init_fonts(double scale)
 {
 	al_set_new_bitmap_flags(0);
-	fonts[FONT_BUTTON] = al_load_ttf_font("assets/font_opensans/OpenSans-Regular.ttf", -20, 0);
-	fonts[FONT_ANSWER] = al_load_ttf_font("assets/font_opensans/OpenSans-Regular.ttf", -20, 0);
-	fonts[FONT_MARKING] = al_load_ttf_font("assets/font_opensans/OpenSans-Italic.ttf", -6, 0);
+	fonts[FONT_BUTTON] = al_load_ttf_font("assets/font_opensans/OpenSans-Regular.ttf", -20*scale, 0);
+	fonts[FONT_ANSWER] = al_load_ttf_font("assets/font_opensans/OpenSans-Regular.ttf", -24*scale, 0);
+	fonts[FONT_MARKING5] = al_load_ttf_font("assets/font_opensans/OpenSans-Italic.ttf", -12*scale, 0);
+	fonts[FONT_MARKING6] = al_load_ttf_font("assets/font_opensans/OpenSans-Italic.ttf", -11*scale, 0);
+	fonts[FONT_MARKING7] = al_load_ttf_font("assets/font_opensans/OpenSans-Italic.ttf", -10*scale, 0);
+	fonts[FONT_MARKING8] = al_load_ttf_font("assets/font_opensans/OpenSans-Italic.ttf", -9*scale, 0);
+	fonts[FONT_MARKING9] = al_load_ttf_font("assets/font_opensans/OpenSans-Italic.ttf", -7*scale, 0);
 }
+void scale_fonts()
+{
+	for(int q = 0; q < NUM_FONTS; ++q)
+		al_destroy_font(fonts[q]);
+	init_fonts(render_scale);
+}
+
+void on_resize()
+{
+	int w = render_resx, h = render_resy;
+	update_scale();
+	if(w == render_resx && h == render_resy)
+		return; // no resize
+	al_destroy_bitmap(canvas);
+	canvas = al_create_bitmap(render_resx, render_resy);
+	if(!canvas)
+		fail("Failed to recreate canvas bitmap!");
+	scale_fonts();
+}
+
 void setup_allegro()
 {
 	if(!al_init())
@@ -414,6 +503,6 @@ void setup_allegro()
 	al_set_window_constraints(display, CANVAS_W, CANVAS_H, 0, 0);
 	al_apply_window_constraints(display, true);
 	
-	init_fonts();
+	init_fonts(1.0);
 }
 

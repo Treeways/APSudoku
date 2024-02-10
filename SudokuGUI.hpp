@@ -30,14 +30,19 @@ enum Font
 {
 	FONT_BUTTON,
 	FONT_ANSWER,
-	FONT_MARKING,
+	FONT_MARKING5,
+	FONT_MARKING6,
+	FONT_MARKING7,
+	FONT_MARKING8,
+	FONT_MARKING9,
 	NUM_FONTS
 };
 
 extern ALLEGRO_FONT* fonts[NUM_FONTS];
 
 inline ALLEGRO_COLOR
-	C_WHITE = al_map_rgb(255,255,255)
+	C_TRANS = al_map_rgba(0,0,0,0)
+	, C_WHITE = al_map_rgb(255,255,255)
 	, C_BLACK = al_map_rgb(0,0,0)
 	, C_BLUE = al_map_rgb(30, 107, 229)
 	, C_LGRAY = al_map_rgb(192, 192, 192)
@@ -48,6 +53,7 @@ inline ALLEGRO_COLOR
 
 #define C_BG C_LGRAY
 #define C_TXT C_BLUE
+#define C_GIVEN C_BLACK
 
 void log(string const& msg);
 void fail(string const& msg);
@@ -130,3 +136,9 @@ struct Button : public MouseObject
 	Button(string const& txt, u16 X, u16 Y);
 	Button(string const& txt, u16 X, u16 Y, u16 W, u16 H);
 };
+
+void update_scale();
+void scale_x(u16& x);
+void scale_y(u16& y);
+void scale_pos(u16& x, u16& y);
+void scale_pos(u16& x, u16& y, u16& w, u16& h);
