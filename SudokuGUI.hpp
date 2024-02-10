@@ -10,11 +10,18 @@
 #include <string>
 #include <optional>
 #include <functional>
+#include <tuple>
 #include <stdint.h>
+typedef int8_t i8;
+typedef int16_t i16;
+typedef int32_t i32;
+typedef int64_t i64;
 typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
+typedef unsigned int uint;
+using std::tuple;
 using std::string;
 using std::set;
 using std::map;
@@ -27,18 +34,8 @@ enum Screen
 {
 	SCR_SUDOKU,
 	SCR_CONNECT,
+	SCR_SETTINGS,
 	NUM_SCRS
-};
-enum Font
-{
-	FONT_BUTTON,
-	FONT_ANSWER,
-	FONT_MARKING5,
-	FONT_MARKING6,
-	FONT_MARKING7,
-	FONT_MARKING8,
-	FONT_MARKING9,
-	NUM_FONTS
 };
 enum EntryMode
 {
@@ -49,8 +46,6 @@ enum EntryMode
 };
 extern EntryMode mode;
 EntryMode get_mode();
-
-extern ALLEGRO_FONT* fonts[NUM_FONTS];
 
 inline ALLEGRO_COLOR
 	C_TRANS = al_map_rgba(0,0,0,0)
@@ -84,6 +79,44 @@ enum direction
 void log(string const& msg);
 void fail(string const& msg);
 
+enum Bold
+{
+	BOLD_LIGHT,
+	BOLD_NONE,
+	BOLD_SEMI,
+	BOLD_NORMAL,
+	BOLD_EXTRA,
+	NUM_BOLDS
+};
+struct FontDef : public tuple<i16,bool,Bold> // A reference to a font
+{
+	i16& height() {return std::get<0>(*this);}
+	i16 const& height() const {return std::get<0>(*this);}
+	bool& italic() {return std::get<1>(*this);}
+	bool const& italic() const {return std::get<1>(*this);}
+	Bold& weight() {return std::get<2>(*this);}
+	Bold const& weight() const {return std::get<2>(*this);}
+	
+	FontDef(i16 h = -20, bool ital = false, Bold b = BOLD_NONE);
+	ALLEGRO_FONT* get() const;
+	ALLEGRO_FONT* gen() const;
+	//Unscaled, so, canvas-size
+	ALLEGRO_FONT* get_base() const;
+	ALLEGRO_FONT* gen_base() const;
+};
+enum Font
+{
+	FONT_BUTTON,
+	FONT_ANSWER,
+	FONT_MARKING5,
+	FONT_MARKING6,
+	FONT_MARKING7,
+	FONT_MARKING8,
+	FONT_MARKING9,
+	NUM_FONTS
+};
+extern FontDef fonts[NUM_FONTS];
+
 enum MouseEvent
 {
 	MOUSE_HOVER_ENTER,
@@ -101,14 +134,21 @@ enum MouseEvent
 };
 #define MFL_HASMOUSE 0x01
 
-#define MRET_OK         0x00
-#define MRET_TAKEFOCUS  0x01
+#define MRET_OK         (u32(0x00))
+#define MRET_TAKEFOCUS  (u32(0x01))
 
 struct DrawnObject
 {
 	u16 x, y;
+	std::function<void()> onResizeDisplay;
+	
+	void on_disp_resize();
 	virtual void draw() const {};
 	virtual bool mouse() {return false;}
+	virtual u16 xpos() const {return x;}
+	virtual u16 ypos() const {return y;}
+	virtual u16 width() const {return 0;}
+	virtual u16 height() const {return 0;}
 	virtual void key_event(ALLEGRO_EVENT const& ev) {}
 	DrawnObject() = default;
 	DrawnObject(u16 x, u16 y) : x(x), y(y) {}
@@ -119,7 +159,9 @@ struct InputObject : public DrawnObject
 	u16 w, h;
 	u8 mouseflags;
 	std::function<u32(MouseEvent)> onMouse;
-	bool mouse() override;
+	virtual bool mouse() override;
+	virtual u16 width() const override {return w;}
+	virtual u16 height() const override {return h;}
 	void unhover();
 	InputObject() = default;
 	InputObject(u16 x, u16 y)
@@ -145,7 +187,13 @@ struct InputState : public ALLEGRO_MOUSE_STATE
 	bool ctrl_cmd() const;
 	bool alt() const;
 };
-extern InputState input_state;
+extern InputState* cur_input;
+
+void update_scale();
+void scale_x(u16& x);
+void scale_y(u16& y);
+void scale_pos(u16& x, u16& y);
+void scale_pos(u16& x, u16& y, u16& w, u16& h);
 
 #define FL_SELECTED 0b00000001
 #define FL_DISABLED 0b00000010
@@ -161,14 +209,46 @@ struct Button : public InputObject
 	u8 flags;
 	
 	void draw() const override;
+	bool mouse() override;
 	
 	Button();
+	Button(string const& txt);
 	Button(string const& txt, u16 X, u16 Y);
 	Button(string const& txt, u16 X, u16 Y, u16 W, u16 H);
+	
+	u32 handle_ev(MouseEvent ev);
 };
 
-void update_scale();
-void scale_x(u16& x);
-void scale_y(u16& y);
-void scale_pos(u16& x, u16& y);
-void scale_pos(u16& x, u16& y, u16& w, u16& h);
+struct ShapeRect : public InputObject
+{
+	ALLEGRO_COLOR c_fill = C_BG;
+	
+	void draw() const override;
+	virtual bool mouse() override;
+	
+	ShapeRect();
+	ShapeRect(u16 X, u16 Y, u16 W, u16 H);
+	ShapeRect(u16 X, u16 Y, u16 W, u16 H, ALLEGRO_COLOR c);
+};
+
+struct Label : public InputObject
+{
+	ALLEGRO_COLOR c_txt = C_BLACK;
+	optional<ALLEGRO_COLOR> c_shadow = nullopt;
+	string text;
+	i8 align;
+	FontDef font;
+	
+	void draw() const override;
+	u16 xpos() const override;
+	//u16 ypos() const override; //add valign?
+	u16 width() const override;
+	u16 height() const override;
+	
+	Label();
+	Label(string const& txt);
+	Label(string const& txt, u16 X, u16 Y, FontDef fd, i8 align = ALLEGRO_ALIGN_CENTRE);
+	Label(string const& txt, u16 X, u16 Y, FontDef fd, i8 align, ALLEGRO_COLOR fg, optional<ALLEGRO_COLOR> shd = nullopt);
+};
+
+u32 mouse_killfocus(MouseEvent e);

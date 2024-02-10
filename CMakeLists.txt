@@ -89,6 +89,9 @@ add_executable(APSudoku
 	SudokuGUI.cpp
 	SudokuGrid.cpp
 	)
+if(MSVC)
+    add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+endif()
 
 option(WANT_TESTS "" OFF)
 option(WANT_EXAMPLES "" OFF)

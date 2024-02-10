@@ -43,9 +43,10 @@ namespace Sudoku
 		if(val)
 		{
 			string text = to_string(val);
+			ALLEGRO_FONT* f = fonts[FONT_ANSWER].get();
 			int tx = (X+W/2);
-			int ty = (Y+H/2)-(al_get_font_line_height(fonts[FONT_ANSWER])/2);
-			al_draw_text(fonts[FONT_ANSWER], given ? C_GIVEN : c_text, tx, ty, ALLEGRO_ALIGN_CENTRE, text.c_str());
+			int ty = (Y+H/2)-(al_get_font_line_height(f)/2);
+			al_draw_text(f, given ? C_GIVEN : c_text, tx, ty, ALLEGRO_ALIGN_CENTRE, text.c_str());
 		}
 		else if(!given)
 		{
@@ -62,23 +63,25 @@ namespace Sudoku
 				auto font = FONT_MARKING5;
 				if(cen_marks.size() > 5)
 					font = Font(FONT_MARKING5 + cen_marks.size()-5);
+				ALLEGRO_FONT* f = fonts[font].get();
 				int tx = (X+W/2);
-				int ty = (Y+H/2)-(al_get_font_line_height(fonts[font])/2);
-				al_draw_text(fonts[font], c_text, tx, ty, ALLEGRO_ALIGN_CENTRE, cen_marks.c_str());
+				int ty = (Y+H/2)-(al_get_font_line_height(f)/2);
+				al_draw_text(f, c_text, tx, ty, ALLEGRO_ALIGN_CENTRE, cen_marks.c_str());
 			}
 			if(!crn_marks.empty())
 			{
 				auto font = FONT_MARKING5;
+				ALLEGRO_FONT* f = fonts[font].get();
 				u16 vx = 6, vy = 6;
 				scale_pos(vx, vy);
-				u16 xs[] = {vx,W-vx,vx,W-vx,W/2,W/2,vx,W-vx,W/2-4};
-				u16 ys[] = {vy,vy,H-vy,H-vy,vy,H-vy,H/2,H/2,H/2-4};
-				auto fh = al_get_font_line_height(fonts[font]);
+				int xs[] = {vx,W-vx,vx,W-vx,W/2,W/2,vx,W-vx,W/2-4};
+				int ys[] = {vy,vy,H-vy,H-vy,vy,H-vy,H/2,H/2,H/2-4};
+				auto fh = al_get_font_line_height(f);
 				char buf[2] = {0,0};
 				for(int q = 0; q < 9 && q < crn_marks.size(); ++q)
 				{
 					buf[0] = crn_marks[q];
-					al_draw_text(fonts[font], c_text, X+xs[q], Y+ys[q] - fh/2, ALLEGRO_ALIGN_CENTRE, buf);
+					al_draw_text(f, c_text, X+xs[q], Y+ys[q] - fh/2, ALLEGRO_ALIGN_CENTRE, buf);
 				}
 			}
 		}
@@ -271,8 +274,8 @@ namespace Sudoku
 	}
 	Cell* Grid::get_hov()
 	{
-		u8 col = (input_state.x - x) / CELL_SZ;
-		u8 row = (input_state.y - y) / CELL_SZ;
+		u8 col = (cur_input->x - x) / CELL_SZ;
+		u8 row = (cur_input->y - y) / CELL_SZ;
 		return get(row,col);
 	}
 	optional<u8> Grid::find(Cell* c)
@@ -372,9 +375,9 @@ namespace Sudoku
 	}
 	void Grid::key_event(ALLEGRO_EVENT const& ev)
 	{
-		bool shift = input_state.shift();
-		bool ctrl_cmd = input_state.ctrl_cmd();
-		bool alt = input_state.alt();
+		bool shift = cur_input->shift();
+		bool ctrl_cmd = cur_input->ctrl_cmd();
+		bool alt = cur_input->alt();
 		switch(ev.type)
 		{
 			case ALLEGRO_EVENT_KEY_DOWN:
