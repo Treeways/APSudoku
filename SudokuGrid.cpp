@@ -19,6 +19,8 @@ namespace Sudoku
 	void Cell::draw(u16 x, u16 y) const
 	{
 		al_draw_filled_rectangle(x, y, x+CELL_SZ-1, y+CELL_SZ-1, c_bg);
+		if(flags & CFL_SELECTED)
+			al_draw_filled_rectangle(x, y, x+CELL_SZ-1, y+CELL_SZ-1, c_sel);
 		al_draw_rectangle(x, y, x+CELL_SZ-1, y+CELL_SZ-1, c_border, 0.5);
 	}
 	
@@ -83,7 +85,37 @@ namespace Sudoku
 			reg.cells[q] = &(cells[9*(3*(ind/3) + (q/3)) + (3*(ind%3) + (q%3))]);
 		return reg;
 	}
+	Cell* Grid::get(u8 row, u8 col)
+	{
+		if(row >= 9 || col >= 9)
+			return nullptr;
+		return &cells[9*row + col];
+	}
+	Cell* Grid::get_hov()
+	{
+		u8 col = (mouse_state.x - x) / CELL_SZ;
+		u8 row = (mouse_state.y - y) / CELL_SZ;
+		return get(row,col);
+	}
 	
+	
+	void Grid::deselect()
+	{
+		for(Cell* c : selected)
+			c->flags &= ~CFL_SELECTED;
+		selected.clear();
+	}
+	void Grid::select(Cell* c)
+	{
+		bool found = false;
+		for(int q = 0; q < 9*9; ++q)
+			if((found = (c == &cells[q])))
+				break;
+		if(!found)
+			throw sudoku_exception("Cannot select cell not from this grid!");
+		selected.insert(c);
+		c->flags |= CFL_SELECTED;
+	}
 	void Grid::clear_invalid()
 	{
 		for(Cell& c : cells)
@@ -103,7 +135,7 @@ namespace Sudoku
 		}
 	}
 	Grid::Grid(u16 X, u16 Y)
-		: x(X), y(Y)
+		: MouseObject(X,Y,9*CELL_SZ,9*CELL_SZ)
 	{}
 }
 
