@@ -11,6 +11,31 @@ add_library(APCpp SHARED Archipelago.cpp Archipelago.h)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(ENABLE_TESTING OFF CACHE BOOL "" FORCE)
 
+# Point to the dependencies
+set(ALLEG_DEPS_INCLUDE "${CMAKE_BINARY_DIR}/allegro5/deps/include/")
+set(ALLEG_DEPS_LIBS "${CMAKE_BINARY_DIR}/allegro5/deps/lib/")
+
+set(ZLIB_LIBRARY "${ALLEG_DEPS_LIBS}/zlib.lib" CACHE STRING "" FORCE)
+set(ZLIB_INCLUDE_DIR "${ALLEG_DEPS_INCLUDE}" CACHE STRING "" FORCE)
+set(PNG_LIBRARY "${ALLEG_DEPS_LIBS}/libpng16.lib" CACHE STRING "" FORCE)
+set(PNG_PNG_INCLUDE_DIR "${ALLEG_DEPS_INCLUDE}/libpng16" CACHE STRING "" FORCE)
+set(JPEG_LIBRARY "${ALLEG_DEPS_LIBS}/jpeg.lib" CACHE STRING "" FORCE)
+set(JPEG_INCLUDE_DIR "${ALLEG_DEPS_INCLUDE}" CACHE STRING "" FORCE)
+set(FREETYPE_LIBRARY "${ALLEG_DEPS_LIBS}/freetype.lib" CACHE STRING "" FORCE)
+set(FREETYPE_INCLUDE_DIRS "${ALLEG_DEPS_INCLUDE}/freetype2/freetype" CACHE STRING "" FORCE)
+set(FREETYPE_INCLUDE_DIR_freetype2 "${ALLEG_DEPS_INCLUDE}/freetype2/freetype" CACHE STRING "" FORCE)
+set(FREETYPE_INCLUDE_DIR_ft2build "${ALLEG_DEPS_INCLUDE}/freetype2" CACHE STRING "" FORCE)
+set(FREETYPE_ZLIB ON CACHE BOOL "" FORCE)
+set(FREETYPE_PNG ON CACHE BOOL "" FORCE)
+set(FREETYPE_BZIP2 OFF CACHE BOOL "" FORCE)
+set(OGG_LIBRARY "${ALLEG_DEPS_LIBS}/ogg.lib" CACHE STRING "" FORCE)
+set(OGG_INCLUDE_DIR "${ALLEG_DEPS_INCLUDE}" CACHE STRING "" FORCE)
+set(FLAC_LIBRARY "${ALLEG_DEPS_LIBS}/FLAC.lib" CACHE STRING "" FORCE)
+set(FLAC_INCLUDE_DIR "${ALLEG_DEPS_INCLUDE}" CACHE STRING "" FORCE)
+set(DUMB_LIBRARY "${ALLEG_DEPS_LIBS}/dumb.lib" CACHE STRING "" FORCE)
+set(DUMB_INCLUDE_DIR "${ALLEG_DEPS_INCLUDE}" CACHE STRING "" FORCE)
+set(MINIMP3_INCLUDE_DIRS "${ALLEG_DEPS_INCLUDE}" CACHE STRING "" FORCE)
+
 # Enable TLS. On Windows, build mbedTLS
 set(USE_TLS ON CACHE BOOL "Enable TLS support" FORCE)
 if (WIN32 AND USE_TLS)
@@ -76,48 +101,10 @@ option(WANT_FONT "" ON)
 option(WANT_TTF "" ON)
 option(WANT_PRIMITIVES "" ON)
 
-find_program(NUGET_EXE NAMES nuget)
-if(NOT NUGET_EXE)
-	message(FATAL_ERROR " CMake could not find the nuget command line tool. Please install it!")
-endif()
-execute_process(COMMAND
-	${NUGET_EXE} install AllegroDeps -Version 1.14.0 -OutputDirectory "${CMAKE_BINARY_DIR}/allegro5/deps" -ExcludeVersion)
-# add_custom_target(allegdeps
-	# COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/allegro5/deps/include/"
-	# COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/allegro5/deps/lib/"
-	# COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_BINARY_DIR}/allegro5/deps/AllegroDeps/build/native/include/"  "${CMAKE_BINARY_DIR}/allegro5/deps/include/"
-	# COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_BINARY_DIR}/allegro5/deps/AllegroDeps/build/native/v143/x64/deps/lib/"  "${CMAKE_BINARY_DIR}/allegro5/deps/lib/"
-	# WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
-	# )
-#file(COPY "${CMAKE_BINARY_DIR}/allegro5/deps/AllegroDeps/build/native/include/" DESTINATION "${CMAKE_BINARY_DIR}/allegro5/deps/include/")
-#file(COPY "${CMAKE_BINARY_DIR}/allegro5/deps/AllegroDeps/build/native/v143/x64/deps/lib/" DESTINATION "${CMAKE_BINARY_DIR}/allegro5/deps/lib/")
-
-set(ALLEG_DEPS_INCLUDE "${CMAKE_BINARY_DIR}/allegro5/deps/AllegroDeps/build/native/include/")
-set(ALLEG_DEPS_LIBS "${CMAKE_BINARY_DIR}/allegro5/deps/AllegroDeps/build/native/v143/x64/deps/lib/")
-
-set(ZLIB_LIBRARY "${ALLEG_DEPS_LIBS}/zlib.lib" CACHE STRING "" FORCE)
-set(ZLIB_INCLUDE_DIR "${ALLEG_DEPS_INCLUDE}" CACHE STRING "" FORCE)
-set(PNG_LIBRARY "${ALLEG_DEPS_LIBS}/libpng16.lib" CACHE STRING "" FORCE)
-set(PNG_PNG_INCLUDE_DIR "${ALLEG_DEPS_INCLUDE}/libpng16" CACHE STRING "" FORCE)
-set(JPEG_LIBRARY "${ALLEG_DEPS_LIBS}/jpeg.lib" CACHE STRING "" FORCE)
-set(JPEG_INCLUDE_DIR "${ALLEG_DEPS_INCLUDE}" CACHE STRING "" FORCE)
-# set(OGG_LIBRARY "${ALLEG_DEPS_LIBS}/ogg.lib" CACHE STRING "" FORCE)
-# set(OGG_INCLUDE_DIR "${ALLEG_DEPS_INCLUDE}" CACHE STRING "" FORCE)
-# set(FLAC_LIBRARY "${ALLEG_DEPS_LIBS}/FLAC.lib" CACHE STRING "" FORCE)
-# set(FLAC_INCLUDE_DIR "${ALLEG_DEPS_INCLUDE}" CACHE STRING "" FORCE)
-# set(DUMB_LIBRARY "${ALLEG_DEPS_LIBS}/dumb.lib" CACHE STRING "" FORCE)
-# set(DUMB_INCLUDE_DIR "${ALLEG_DEPS_INCLUDE}" CACHE STRING "" FORCE)
-# set(MINIMP3_INCLUDE_DIRS "${ALLEG_DEPS_INCLUDE}" CACHE STRING "" FORCE)
-set(FREETYPE_LIBRARY "${ALLEG_DEPS_LIBS}/freetype.lib" CACHE STRING "" FORCE)
-set(FREETYPE_INCLUDE_DIRS "${ALLEG_DEPS_INCLUDE}/freetype2" CACHE STRING "" FORCE)
-# set(PHYSFS_LIBRARY "${ALLEG_DEPS_LIBS}/physfs.lib" CACHE STRING "" FORCE)
-# set(PHYSFS_INCLUDE_DIR "${ALLEG_DEPS_INCLUDE}" CACHE STRING "" FORCE)
-
 add_subdirectory(allegro5)
 target_include_directories(APSudoku PUBLIC
 	allegro5/include
 	build/allegro5/include
-	#build/allegro5/deps/AllegroDeps/build/native/include
 	allegro5/addons/primitives
 	allegro5/addons/font
 	allegro5/addons/main
@@ -127,6 +114,3 @@ target_include_directories(APSudoku PUBLIC
 set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT APSudoku)
 
 target_link_libraries(APSudoku PUBLIC APCpp allegro allegro_main allegro_primitives allegro_font allegro_ttf)
-
-
-# cmake .. -DWIN32=1 -DUSE_ZLIB=OFF
