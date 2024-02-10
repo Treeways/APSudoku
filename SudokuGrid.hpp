@@ -39,6 +39,7 @@ namespace Sudoku
 		void clear_marks();
 		
 		void draw(u16 x, u16 y, u16 w, u16 h) const;
+		void draw_sel(u16 x, u16 y, u16 w, u16 h, u8 hlbits) const;
 	};
 	struct Region
 	{

@@ -48,8 +48,21 @@ inline ALLEGRO_COLOR
 	, C_LGRAY = al_map_rgb(192, 192, 192)
 	, C_MGRAY = al_map_rgb(128, 128, 128)
 	, C_DGRAY = al_map_rgb(64, 64, 64)
-	, C_HIGHLIGHT = al_map_rgba(64, 64, 192, 128);
+	, C_HIGHLIGHT = al_map_rgb(76, 164, 255)
 	;
+
+enum direction
+{
+	DIR_UP,
+	DIR_DOWN,
+	DIR_LEFT,
+	DIR_RIGHT,
+	DIR_UPLEFT,
+	DIR_UPRIGHT,
+	DIR_DOWNLEFT,
+	DIR_DOWNRIGHT,
+	NUM_DIRS
+};
 
 #define C_BG C_LGRAY
 #define C_TXT C_BLUE

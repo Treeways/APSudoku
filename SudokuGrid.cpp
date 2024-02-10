@@ -19,8 +19,6 @@ namespace Sudoku
 	void Cell::draw(u16 X, u16 Y, u16 W, u16 H) const
 	{
 		al_draw_filled_rectangle(X, Y, X+W-1, Y+H-1, c_bg);
-		if(flags & CFL_SELECTED)
-			al_draw_filled_rectangle(X, Y, X+W-1, Y+H-1, c_sel);
 		al_draw_rectangle(X, Y, X+W-1, Y+H-1, c_border, 0.5);
 		
 		bool given = (flags & CFL_GIVEN);
@@ -63,6 +61,98 @@ namespace Sudoku
 				{
 					buf[0] = crn_marks[q];
 					al_draw_text(fonts[font], c_text, X+xs[q], Y+ys[q] - fh/2, ALLEGRO_ALIGN_CENTRE, buf);
+				}
+			}
+		}
+	}
+	void Cell::draw_sel(u16 X, u16 Y, u16 W, u16 H, u8 hlbits) const
+	{
+		if(!hlbits)
+			return;
+		u16 HLW = 4, HLH = 4;
+		scale_pos(HLW, HLH);
+		for(u8 q = 0; q < NUM_DIRS; ++q)
+		{
+			u16 TX = X, TY = Y, TW = W, TH = H;
+			if(hlbits & (1<<q))
+			{
+				switch(q)
+				{
+					case DIR_UP:
+					case DIR_DOWN:
+						if(!(hlbits & (1<<DIR_LEFT)))
+						{
+							TX -= HLW;
+							TW += HLW;
+						}
+						if(!(hlbits & (1<<DIR_RIGHT)))
+						{
+							TW += HLW;
+						}
+						break;
+					case DIR_LEFT:
+					case DIR_RIGHT:
+						if(!(hlbits & (1<<DIR_UP)))
+						{
+							TY -= HLH;
+							TH += HLH;
+						}
+						if(!(hlbits & (1<<DIR_DOWN)))
+						{
+							TH += HLH;
+						}
+						break;
+				}
+				switch(q)
+				{
+					case DIR_UP:
+						al_draw_filled_rectangle(TX, TY, TX+TW-1, TY+HLH-1, c_sel);
+						hlbits &= ~((1<<DIR_UPLEFT)|(1<<DIR_UPRIGHT));
+						break;
+					case DIR_DOWN:
+						al_draw_filled_rectangle(TX, TY+TH-HLH, TX+TW-1, TY+TH-1, c_sel);
+						hlbits &= ~((1<<DIR_DOWNLEFT)|(1<<DIR_DOWNRIGHT));
+						break;
+					case DIR_LEFT:
+						al_draw_filled_rectangle(TX, TY, TX+HLW-1, TY+TH-1, c_sel);
+						hlbits &= ~((1<<DIR_UPLEFT)|(1<<DIR_DOWNLEFT));
+						break;
+					case DIR_RIGHT:
+						al_draw_filled_rectangle(TX+TW-HLW, TY, TX+TW-1, TY+TH-1, c_sel);
+						hlbits &= ~((1<<DIR_UPRIGHT)|(1<<DIR_DOWNRIGHT));
+						break;
+					case DIR_UPLEFT:
+					{
+						u16 TX2 = TX-HLW, TWOFF = HLW;
+						u16 TY2 = TY-HLH, THOFF = HLH;
+						al_draw_filled_rectangle(TX2, TY, TX2+TWOFF+HLW-1, TY+HLH-1, c_sel);
+						al_draw_filled_rectangle(TX, TY2, TX+HLW-1, TY2+THOFF+HLH-1, c_sel);
+						break;
+					}
+					case DIR_UPRIGHT:
+					{
+						u16 TX2 = TX, TWOFF = HLW;
+						u16 TY2 = TY-HLH, THOFF = HLH;
+						al_draw_filled_rectangle(TX2+TW-HLW, TY, TX2+TWOFF+TW-1, TY+HLH-1, c_sel);
+						al_draw_filled_rectangle(TX+TW-HLW, TY2, TX+TW-1, TY2+THOFF+HLH-1, c_sel);
+						break;
+					}
+					case DIR_DOWNLEFT:
+					{
+						u16 TX2 = TX-HLW, TWOFF = HLW;
+						u16 TY2 = TY, THOFF = HLH;
+						al_draw_filled_rectangle(TX2, TY+TH-HLH, TX2+TWOFF+HLW-1, TY+TH-1, c_sel);
+						al_draw_filled_rectangle(TX, TY2+TH-HLH, TX+HLW-1, TY2+THOFF+TH-1, c_sel);
+						break;
+					}
+					case DIR_DOWNRIGHT:
+					{
+						u16 TX2 = TX, TWOFF = HLW;
+						u16 TY2 = TY, THOFF = HLH;
+						al_draw_filled_rectangle(TX2+TW-HLW, TY+TH-HLH, TX2+TWOFF+TW-1, TY+TH-1, c_sel);
+						al_draw_filled_rectangle(TX+TW-HLW, TY2+TH-HLH, TX+TW-1, TY2+THOFF+TH-1, c_sel);
+						break;
+					}
 				}
 			}
 		}
@@ -169,6 +259,10 @@ namespace Sudoku
 	}
 	void Grid::draw() const
 	{
+		bool sel[9*9] = {0};
+		for(u8 q = 0; q < 9*9; ++q) // Map selected
+			sel[q] = (cells[q].flags & CFL_SELECTED) != 0;
+		//
 		for(u8 q = 0; q < 9*9; ++q) // Cell draws
 		{
 			u16 X = x + ((q%9)*CELL_SZ), Y = y + ((q/9)*CELL_SZ),
@@ -182,6 +276,35 @@ namespace Sudoku
 				W = CELL_SZ*3, H = CELL_SZ*3;
 			scale_pos(X,Y,W,H);
 			al_draw_rectangle(X, Y, X+W-1, Y+H-1, C_BLACK, 2);
+		}
+		for(u8 q = 0; q < 9*9; ++q) // Selected cell highlights
+		{
+			u16 X = x + ((q%9)*CELL_SZ), Y = y + ((q/9)*CELL_SZ),
+				W = CELL_SZ, H = CELL_SZ;
+			scale_pos(X,Y,W,H);
+			u8 hlbits = 0;
+			Cell const& c = cells[q];
+			if(c.flags & CFL_SELECTED)
+			{
+				bool u,d,l,r;
+				if(!(u = (q >= 9)) || !sel[q-9])
+					hlbits |= 1<<DIR_UP;
+				if(!(d = (q < 9*9-9)) || !sel[q+9])
+					hlbits |= 1<<DIR_DOWN;
+				if(!(l = (q % 9)) || !sel[q-1])
+					hlbits |= 1<<DIR_LEFT;
+				if(!(r = ((q % 9) < 8)) || !sel[q+1])
+					hlbits |= 1<<DIR_RIGHT;
+				if(!(u&&l) || !sel[q-9-1])
+					hlbits |= 1<<DIR_UPLEFT;
+				if(!(u&&r) || !sel[q-9+1])
+					hlbits |= 1<<DIR_UPRIGHT;
+				if(!(d&&l) || !sel[q+9-1])
+					hlbits |= 1<<DIR_DOWNLEFT;
+				if(!(d&&r) || !sel[q+9+1])
+					hlbits |= 1<<DIR_DOWNRIGHT;
+			}
+			c.draw_sel(X, Y, W, H, hlbits);
 		}
 	}
 	Grid::Grid(u16 X, u16 Y)
