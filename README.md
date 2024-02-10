@@ -1,7 +1,20 @@
-# APCpp
-C++ Library for Clients interfacing with the [Archipelago Multi-Game Randomizer](https://archipelago.gg)
+# APSudoku
+WIP: Sudoku game for getting Archipelago hints while in BK mode
 
-# Usage
+## Building
+Clone with `--recursive` to include the submodules!
+
+### Windows
+- Install CMake
+- Install NuGet cli
+- Run `initialize.bat`, which should install dependencies via NuGet and run cmake for you.
+
+### Linux
+Good luck! If someone can PR this building properly for linux, feel free, but
+	I have no way to test Linux stuff.
+
+# APCpp Documentation - Minorly edited
+This will eventually be removed, leaving this here for reference while project is WIP. -Em
 
 ## Initialization
 
@@ -45,16 +58,3 @@ To receive messages:
 - Check if message is available using `AP_IsMessagePending()`
 - Receive with `AP_GetLatestMessage()`. This returns an AP_Message struct with a type and preconfigured presentable text for this message. If you want the game client to have more details for the message (for example to create a custom text) any non-plaintext type message can be casted to an AP_`TYPE`Message with some type-specific struct members providing additional information for the given message.
 - Clear the latest message with `AP_ClearLatestMessage()`.
-
-# Building
-Clone the Repo recursively!
-## Linux
-- Create a folder `build`
-- `cd build`
-- `cmake ..`
-- `cmake --build .`
-## Windows
-- Create a folder `build`
-- Enter the folder
-- `cmake .. -DWIN32=1` (If on MinGW, also add `-DMINGW=1`. If `zlib` is not installed add `-DUSE_ZLIB=OFF`)
-- `cmake --build .`
