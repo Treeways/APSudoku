@@ -12,8 +12,9 @@ namespace Sudoku
 	#define PS_WRONG      0b0100 //A cell conflicts with the solution
 	
 	// Flags for cells
-	#define FL_GIVEN      0b0001
-	#define FL_INVALID    0b0010
+	#define CFL_GIVEN      0b0001
+	#define CFL_INVALID    0b0010
+	#define CFL_SELECTED   0b0100
 	
 	struct Cell;
 	struct Region;
@@ -32,6 +33,7 @@ namespace Sudoku
 		ALLEGRO_COLOR c_bg = C_WHITE;
 		ALLEGRO_COLOR c_border = C_LGRAY;
 		ALLEGRO_COLOR c_text = C_TXT;
+		ALLEGRO_COLOR c_sel = C_HIGHLIGHT;
 		
 		void clear();
 		void clear_marks();
@@ -46,16 +48,26 @@ namespace Sudoku
 		Region() = default;
 		friend struct Grid;
 	};
-	struct Grid
+	struct Grid : public MouseObject
 	{
 		Cell cells[9*9];
 		
 		Region get_row(u8 ind);
 		Region get_col(u8 ind);
 		Region get_box(u8 ind);
+		Cell* get(u8 row, u8 col);
+		Cell* get_hov();
 		
 		void clear_invalid();
-		void draw(u16 x, u16 y) const;
+		void draw() const;
+		
+		void deselect();
+		void select(Cell* c);
+		set<Cell*> get_selected() const {return selected;}
+		
+		Grid(u16 X, u16 Y);
+	private:
+		set<Cell*> selected;
 	};
 	
 	class sudoku_exception : public std::exception
