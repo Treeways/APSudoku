@@ -77,10 +77,13 @@ namespace Sudoku
 		bool active() const;
 		void generate(u8 diff);
 		
+		u32 handle_ev(MouseEvent e) override;
+		
 		Grid(u16 X, u16 Y);
 	private:
 		set<Cell*> selected;
 		Cell* focus_cell;
+		
 	};
 	
 	class sudoku_exception : public std::exception

@@ -36,6 +36,7 @@ using std::make_shared;
 
 struct FontDef;
 struct GUIObject;
+struct InputObject;
 struct DrawContainer;
 extern vector<DrawContainer*> popups;
 void dlg_draw();
@@ -93,7 +94,4 @@ enum direction
 void log(string const& msg);
 void error(string const& msg);
 void fail(string const& msg);
-
-
-bool grid_focused();
 

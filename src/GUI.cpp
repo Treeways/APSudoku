@@ -195,6 +195,24 @@ bool InputState::alt() const
 		|| al_key_down(&st,ALLEGRO_KEY_ALTGR));
 }
 
+bool InputState::unfocus()
+{
+	if(!focused) return true;
+	u32 newret = focused->mouse_event(MOUSE_LOSTFOCUS);
+	if(newret & MRET_TAKEFOCUS)
+		return false;
+	return true;
+}
+bool InputState::refocus(InputObject* targ)
+{
+	new_focus = targ;
+	bool ret = unfocus();
+	new_focus = nullptr;
+	if(ret)
+		focused = targ;
+	return ret;
+}
+
 void update_scale()
 {
 	extern ALLEGRO_DISPLAY* display;
@@ -276,38 +294,41 @@ bool GUIObject::selected() const
 {
 	return sel_proc ? sel_proc() : (flags&FL_SELECTED);
 }
+bool GUIObject::focused() const
+{
+	return cur_input && cur_input->focused == this;
+}
 
+void InputObject::focus()
+{
+	if(cur_input && cur_input->focused != this)
+		cur_input->refocus(this);
+}
+u32 InputObject::handle_ev(MouseEvent ev)
+{
+	return mouse_killfocus(*this, ev);
+}
+u32 InputObject::mouse_event(MouseEvent ev)
+{
+	return onMouse ? onMouse(*this,ev) : handle_ev(ev);
+}
 void InputObject::unhover()
 {
-	if(!onMouse) return;
-	
 	if(mouseflags&MFL_HASMOUSE)
 	{
 		mouseflags &= ~MFL_HASMOUSE;
-		process(onMouse(*this,MOUSE_HOVER_EXIT));
+		process(mouse_event(MOUSE_HOVER_EXIT));
 	}
 	if(cur_input->hovered == this)
 		cur_input->hovered = nullptr;
 }
 void InputObject::process(u32 retcode)
 {
-	auto& m = *cur_input;
 	if(retcode & MRET_TAKEFOCUS)
-	{
-		if(m.focused && m.focused != this)
-		{
-			InputObject& ref = *(m.focused);
-			u32 newret = ref.onMouse(ref,MOUSE_LOSTFOCUS);
-			if(!(newret & MRET_TAKEFOCUS))
-				m.focused = this;
-		}
-		else m.focused = this;
-	}
+		focus();
 }
 bool InputObject::mouse()
 {
-	if(!onMouse)
-		return false;
 	auto& m = *cur_input;
 	u16 X = xpos(), Y = ypos(), W = width(), H = height();
 	bool inbounds = (m.x >= X && m.x < X+W) && (m.y >= Y && m.y < Y+H);
@@ -319,30 +340,30 @@ bool InputObject::mouse()
 		if(!(mouseflags&MFL_HASMOUSE))
 		{
 			mouseflags |= MFL_HASMOUSE;
-			process(onMouse(*this,MOUSE_HOVER_ENTER));
+			process(mouse_event(MOUSE_HOVER_ENTER));
 		}
 		
 		if(disabled())
 			return true;
 		if(m.lrelease())
-			process(onMouse(*this,MOUSE_LRELEASE));
+			process(mouse_event(MOUSE_LRELEASE));
 		else if(m.lrelease())
-			process(onMouse(*this,MOUSE_RRELEASE));
+			process(mouse_event(MOUSE_RRELEASE));
 		else if(m.lrelease())
-			process(onMouse(*this,MOUSE_MRELEASE));
+			process(mouse_event(MOUSE_MRELEASE));
 		
 		if(m.lclick())
-			process(onMouse(*this,MOUSE_LCLICK));
+			process(mouse_event(MOUSE_LCLICK));
 		else if(m.rclick())
-			process(onMouse(*this,MOUSE_RCLICK));
+			process(mouse_event(MOUSE_RCLICK));
 		else if(m.mclick())
-			process(onMouse(*this,MOUSE_MCLICK));
+			process(mouse_event(MOUSE_MCLICK));
 		else if(m.buttons & 0x1)
-			process(onMouse(*this,MOUSE_LDOWN));
+			process(mouse_event(MOUSE_LDOWN));
 		else if(m.buttons & 0x2)
-			process(onMouse(*this,MOUSE_RDOWN));
+			process(mouse_event(MOUSE_RDOWN));
 		else if(m.buttons & 0x4)
-			process(onMouse(*this,MOUSE_MDOWN));
+			process(mouse_event(MOUSE_MDOWN));
 		
 		return true;
 	}
@@ -520,12 +541,6 @@ u32 RadioButton::handle_ev(MouseEvent e)
 	}
 	return MRET_OK;
 }
-bool RadioButton::mouse()
-{
-	if(!onMouse)
-		onMouse = [](InputObject& ref,MouseEvent e){return ref.handle_ev(e);};
-	return InputObject::mouse();
-}
 u16 RadioButton::xpos() const
 {
 	return x - radius - pad;
@@ -563,7 +578,8 @@ void RadioSet::init(vector<string>& opts, FontDef fnt, u16 rad)
 				if(e == MOUSE_LCLICK)
 				{
 					this->select(ind);
-					return MRET_TAKEFOCUS;
+					this->focus();
+					return MRET_OK;
 				}
 				return ref.handle_ev(e);
 			};
@@ -654,12 +670,6 @@ u32 Button::handle_ev(MouseEvent e)
 	}
 	return MRET_OK;
 }
-bool Button::mouse()
-{
-	if(!onMouse)
-		onMouse = [](InputObject& ref,MouseEvent e){return ref.handle_ev(e);};
-	return InputObject::mouse();
-}
 
 Button::Button()
 	: InputObject(0, 0, 96, 32), font(FontDef(-20, false, BOLD_NONE))
@@ -686,13 +696,6 @@ void ShapeRect::draw() const
 	if(c_border)
 		al_draw_rectangle(X, Y, X+W-1, Y+H-1, *c_border, brd_thick);
 	al_draw_filled_rectangle(X, Y, X+W-1, Y+H-1, c_fill);
-}
-
-bool ShapeRect::mouse()
-{
-	if(!onMouse)
-		onMouse = mouse_killfocus;
-	return InputObject::mouse();
 }
 
 ShapeRect::ShapeRect()
@@ -762,13 +765,8 @@ Label::Label(string const& txt, u16 X, u16 Y, FontDef fd, i8 al)
 //COMMON EVENT FUNCS
 u32 mouse_killfocus(InputObject& ref,MouseEvent e)
 {
-	if(e == MOUSE_LCLICK && cur_input->focused)
-	{
-		InputObject& ref = *(cur_input->focused);
-		u32 newret = ref.onMouse(ref,MOUSE_LOSTFOCUS);
-		if(!(newret & MRET_TAKEFOCUS))
-			cur_input->focused = nullptr;
-	}
+	if(e == MOUSE_LCLICK)
+		cur_input->unfocus();
 	return MRET_OK;
 }
 
@@ -873,13 +871,10 @@ optional<u8> pop_confirm(string const& title, string const& msg, vector<string> 
 	}
 	{ //BG, to allow 'clicking off' / shade the background
 		bg = make_shared<ShapeRect>(0,0,CANVAS_W,CANVAS_H,al_map_rgba(0,0,0,128));
-		bg->onMouse = mouse_killfocus;
 		
 		win = make_shared<ShapeRect>(POP_X,POP_Y,POP_W,POP_H,C_BG,C_BLACK,4);
-		win->onMouse = mouse_killfocus;
 		
 		titlebar = make_shared<ShapeRect>(POP_X,POP_Y-TITLE_H,POP_W,TITLE_H,C_BG,C_BLACK,4);
-		titlebar->onMouse = mouse_killfocus;
 	}
 	{ //Buttons
 		btnrow = make_shared<Row>(0,0,BTN_PAD,2,ALLEGRO_ALIGN_CENTRE);

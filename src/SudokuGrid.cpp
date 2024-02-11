@@ -636,6 +636,30 @@ namespace Sudoku
 		}
 	}
 	
+	u32 Grid::handle_ev(MouseEvent e)
+	{
+		u32 ret = MRET_OK;
+		switch(e)
+		{
+			case MOUSE_LCLICK:
+				ret |= MRET_TAKEFOCUS;
+				if(!(cur_input->shift() || cur_input->ctrl_cmd()))
+					deselect();
+			[[fallthrough]];
+			case MOUSE_LDOWN:
+				if((ret & MRET_TAKEFOCUS) || focused())
+				{
+					if(Cell* c = get_hov())
+						select(c);
+				}
+				break;
+			case MOUSE_LOSTFOCUS:
+				deselect();
+				break;
+		}
+		return ret;
+	}
+	
 	Grid::Grid(u16 X, u16 Y)
 		: InputObject(X,Y,9*CELL_SZ,9*CELL_SZ)
 	{}

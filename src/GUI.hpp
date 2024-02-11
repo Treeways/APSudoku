@@ -45,6 +45,7 @@ struct InputState : public ALLEGRO_MOUSE_STATE
 	int oldstate = 0;
 	InputObject* hovered = nullptr;
 	InputObject* focused = nullptr;
+	InputObject* new_focus = nullptr;
 	
 	bool lclick() const {return (buttons&0x7) == 0x1 && !(oldstate&0x7);}
 	bool rclick() const {return (buttons&0x7) == 0x2 && !(oldstate&0x7);}
@@ -55,6 +56,8 @@ struct InputState : public ALLEGRO_MOUSE_STATE
 	bool shift() const;
 	bool ctrl_cmd() const;
 	bool alt() const;
+	bool unfocus();
+	bool refocus(InputObject* targ);
 };
 extern InputState* cur_input;
 
@@ -151,6 +154,8 @@ struct GUIObject
 	virtual bool selected() const;
 	virtual void key_event(ALLEGRO_EVENT const& ev) {}
 	virtual void realign(size_t start = 0) {}
+	virtual void focus(){}
+	bool focused() const;
 	GUIObject()
 		: flags(0), onResizeDisplay(), dis_proc(), sel_proc(), draw_parent(nullptr)
 	{}
@@ -168,7 +173,9 @@ struct InputObject : public GUIObject
 	virtual void ypos(u16 v) override {y = v + (y-ypos());}
 	virtual u16 width() const override {return w;}
 	virtual u16 height() const override {return h;}
-	virtual u32 handle_ev(MouseEvent ev) {return MRET_OK;};
+	virtual u32 handle_ev(MouseEvent ev);
+	virtual void focus() override;
+	u32 mouse_event(MouseEvent ev);
 	void unhover();
 	InputObject()
 		: GUIObject(), x(0), y(0), w(0), h(0), mouseflags(0), onMouse() {}
@@ -226,7 +233,6 @@ struct RadioButton : public InputObject
 	static const u16 pad = 4;
 	
 	virtual void draw() const override;
-	virtual bool mouse() override;
 	virtual u16 xpos() const override;
 	virtual u16 ypos() const override;
 	virtual u16 width() const override;
@@ -286,7 +292,6 @@ struct Button : public InputObject
 	FontDef font;
 	
 	void draw() const override;
-	bool mouse() override;
 	
 	Button();
 	Button(string const& txt);
@@ -304,7 +309,6 @@ struct ShapeRect : public InputObject
 	double brd_thick;
 	
 	void draw() const override;
-	virtual bool mouse() override;
 	
 	ShapeRect();
 	ShapeRect(u16 X, u16 Y, u16 W, u16 H);

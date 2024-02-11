@@ -50,6 +50,7 @@ shared_ptr<Sudoku::Grid> grid;
 #define BUTTON_Y (32)
 shared_ptr<Button> swap_btns[NUM_SCRS];
 shared_ptr<RadioSet> difficulty;
+shared_ptr<RadioSet> entry_mode;
 
 
 Screen curscr = SCR_SUDOKU;
@@ -57,11 +58,6 @@ Screen curscr = SCR_SUDOKU;
 map<Screen,DrawContainer> gui_objects;
 vector<DrawContainer*> popups;
 bool settings_unsaved = false;
-
-bool grid_focused()
-{
-	return cur_input && cur_input->focused == grid.get();
-}
 
 void swap_screen(Screen scr)
 {
@@ -116,26 +112,17 @@ void build_gui()
 		grid = make_shared<Grid>(GRID_X, GRID_Y);
 		grid->onMouse = [](InputObject& ref,MouseEvent e)
 			{
-				u32 ret = MRET_OK;
 				switch(e)
 				{
-					case MOUSE_LCLICK:
-						ret |= MRET_TAKEFOCUS;
-						if(!(cur_input->shift() || cur_input->ctrl_cmd()))
-							grid->deselect();
-					[[fallthrough]];
-					case MOUSE_LDOWN:
-						if((ret & MRET_TAKEFOCUS) || grid_focused())
-						{
-							if(Cell* c = grid->get_hov())
-								grid->select(c);
-						}
-						break;
 					case MOUSE_LOSTFOCUS:
-						grid->deselect();
+						if(cur_input->new_focus == entry_mode.get())
+							return MRET_TAKEFOCUS;
+						for(shared_ptr<GUIObject>& obj : entry_mode->cont)
+							if(cur_input->new_focus == obj.get())
+								return MRET_TAKEFOCUS;
 						break;
 				}
-				return ret;
+				return ref.handle_ev(e);
 			};
 		gui_objects[SCR_SUDOKU].push_back(grid);
 	}
@@ -232,10 +219,10 @@ void build_gui()
 		shared_ptr<Label> entry_lbl = make_shared<Label>("Entry Mode:", font_s, ALLEGRO_ALIGN_LEFT);
 		entry_col->add(entry_lbl);
 		
-		shared_ptr<RadioSet> entry_mode = make_shared<RadioSet>(
+		entry_mode = make_shared<RadioSet>(
 			[]()
 			{
-				if(grid_focused())
+				if(grid->focused())
 					return get_mode();
 				return mode;
 			},
@@ -247,7 +234,7 @@ void build_gui()
 			vector<string>({"Answer","Center","Corner"}),
 			FontDef(-20, false, BOLD_NONE));
 		entry_mode->select(ENT_ANSWER);
-		entry_mode->dis_proc = [](){return grid_focused() && mode_mod();};
+		entry_mode->dis_proc = [](){return grid->focused() && mode_mod();};
 		entry_col->add(entry_mode);
 		
 		gui_objects[SCR_SUDOKU].push_back(entry_col);
