@@ -86,8 +86,10 @@ endif(WIN32)
 # APSudoku setup
 project(APSudoku)
 add_executable(APSudoku
-	SudokuGUI.cpp
-	SudokuGrid.cpp
+	src/Main.cpp
+	src/GUI.cpp
+	src/Font.cpp
+	src/SudokuGrid.cpp
 	)
 if(MSVC)
     add_definitions(-D_CRT_SECURE_NO_WARNINGS)

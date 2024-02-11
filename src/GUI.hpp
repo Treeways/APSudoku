@@ -1,52 +1,7 @@
 #pragma once
 
-#include <allegro5/allegro.h>
-#include <allegro5/allegro_primitives.h>
-#include <allegro5/allegro_font.h>
-#include <allegro5/allegro_ttf.h>
-#include <map>
-#include <vector>
-#include <set>
-#include <string>
-#include <optional>
-#include <functional>
-#include <tuple>
-#include <stdint.h>
-typedef int8_t i8;
-typedef int16_t i16;
-typedef int32_t i32;
-typedef int64_t i64;
-typedef uint8_t u8;
-typedef uint16_t u16;
-typedef uint32_t u32;
-typedef uint64_t u64;
-typedef unsigned int uint;
-using std::tuple;
-using std::string;
-using std::set;
-using std::map;
-using std::vector;
-using std::to_string;
-using std::optional;
-using std::nullopt;
-
-enum Screen
-{
-	SCR_SUDOKU,
-	SCR_CONNECT,
-	SCR_SETTINGS,
-	NUM_SCRS
-};
-enum EntryMode
-{
-	ENT_ANSWER,
-	ENT_CENTER,
-	ENT_CORNER,
-	NUM_ENT
-};
-extern EntryMode mode;
-EntryMode get_mode();
-
+#include "Main.hpp"
+#include "Font.hpp"
 inline ALLEGRO_COLOR
 	C_TRANS = al_map_rgba(0,0,0,0)
 	, C_WHITE = al_map_rgb(255,255,255)
@@ -55,67 +10,28 @@ inline ALLEGRO_COLOR
 	, C_LGRAY = al_map_rgb(192, 192, 192)
 	, C_MGRAY = al_map_rgb(128, 128, 128)
 	, C_DGRAY = al_map_rgb(64, 64, 64)
-	, C_HIGHLIGHT = al_map_rgb(76, 164, 255)
-	, C_HIGHLIGHT2 = al_map_rgb(255, 164, 76)
 	;
+extern ALLEGRO_COLOR
+	C_BG
+	, C_CELL_BG
+	, C_CELL_BORDER
+	, C_CELL_TEXT
+	, C_CELL_GIVEN
+	, C_REGION_BORDER
+	, C_LBL_TEXT
+	, C_LBL_SHADOW
+	, C_BUTTON_FG
+	, C_BUTTON_BG
+	, C_BUTTON_HOVBG
+	, C_BUTTON_BORDER
+	, C_BUTTON_DISTXT
+	, C_HIGHLIGHT
+	, C_HIGHLIGHT2
+	;
+extern double render_xscale, render_yscale;
+extern int render_resx, render_resy;
 
-enum direction
-{
-	DIR_UP,
-	DIR_DOWN,
-	DIR_LEFT,
-	DIR_RIGHT,
-	DIR_UPLEFT,
-	DIR_UPRIGHT,
-	DIR_DOWNLEFT,
-	DIR_DOWNRIGHT,
-	NUM_DIRS
-};
-
-#define C_BG C_LGRAY
-#define C_TXT C_BLUE
-#define C_GIVEN C_BLACK
-
-void log(string const& msg);
-void fail(string const& msg);
-
-enum Bold
-{
-	BOLD_LIGHT,
-	BOLD_NONE,
-	BOLD_SEMI,
-	BOLD_NORMAL,
-	BOLD_EXTRA,
-	NUM_BOLDS
-};
-struct FontDef : public tuple<i16,bool,Bold> // A reference to a font
-{
-	i16& height() {return std::get<0>(*this);}
-	i16 const& height() const {return std::get<0>(*this);}
-	bool& italic() {return std::get<1>(*this);}
-	bool const& italic() const {return std::get<1>(*this);}
-	Bold& weight() {return std::get<2>(*this);}
-	Bold const& weight() const {return std::get<2>(*this);}
-	
-	FontDef(i16 h = -20, bool ital = false, Bold b = BOLD_NONE);
-	ALLEGRO_FONT* get() const;
-	ALLEGRO_FONT* gen() const;
-	//Unscaled, so, canvas-size
-	ALLEGRO_FONT* get_base() const;
-	ALLEGRO_FONT* gen_base() const;
-};
-enum Font
-{
-	FONT_BUTTON,
-	FONT_ANSWER,
-	FONT_MARKING5,
-	FONT_MARKING6,
-	FONT_MARKING7,
-	FONT_MARKING8,
-	FONT_MARKING9,
-	NUM_FONTS
-};
-extern FontDef fonts[NUM_FONTS];
+void clear_a5_bmp(ALLEGRO_COLOR col, ALLEGRO_BITMAP* bmp = nullptr);
 
 enum MouseEvent
 {
@@ -132,6 +48,7 @@ enum MouseEvent
 	MOUSE_RDOWN,
 	MOUSE_MDOWN,
 };
+
 #define MFL_HASMOUSE 0x01
 
 #define MRET_OK         (u32(0x00))
@@ -194,6 +111,10 @@ void scale_x(u16& x);
 void scale_y(u16& y);
 void scale_pos(u16& x, u16& y);
 void scale_pos(u16& x, u16& y, u16& w, u16& h);
+void unscale_x(u16& x);
+void unscale_y(u16& y);
+void unscale_pos(u16& x, u16& y);
+void unscale_pos(u16& x, u16& y, u16& w, u16& h);
 
 #define FL_SELECTED 0b00000001
 #define FL_DISABLED 0b00000010
@@ -201,11 +122,6 @@ void scale_pos(u16& x, u16& y, u16& w, u16& h);
 struct Button : public InputObject
 {
 	string text;
-	ALLEGRO_COLOR c_txt = C_BLACK;
-	ALLEGRO_COLOR c_distxt = C_LGRAY;
-	ALLEGRO_COLOR c_bg = C_WHITE;
-	ALLEGRO_COLOR c_hov_bg = C_LGRAY;
-	ALLEGRO_COLOR c_border = C_BLACK;
 	u8 flags;
 	
 	void draw() const override;
@@ -222,6 +138,8 @@ struct Button : public InputObject
 struct ShapeRect : public InputObject
 {
 	ALLEGRO_COLOR c_fill = C_BG;
+	optional<ALLEGRO_COLOR> c_border = nullopt;
+	double brd_thick;
 	
 	void draw() const override;
 	virtual bool mouse() override;
@@ -229,12 +147,12 @@ struct ShapeRect : public InputObject
 	ShapeRect();
 	ShapeRect(u16 X, u16 Y, u16 W, u16 H);
 	ShapeRect(u16 X, u16 Y, u16 W, u16 H, ALLEGRO_COLOR c);
+	ShapeRect(u16 X, u16 Y, u16 W, u16 H, ALLEGRO_COLOR c, ALLEGRO_COLOR cb, double border_thick);
 };
 
+void draw_text(string const& str, i8 align, FontDef font, ALLEGRO_COLOR c_txt, optional<ALLEGRO_COLOR> c_shadow = nullopt);
 struct Label : public InputObject
 {
-	ALLEGRO_COLOR c_txt = C_BLACK;
-	optional<ALLEGRO_COLOR> c_shadow = nullopt;
 	string text;
 	i8 align;
 	FontDef font;
@@ -248,7 +166,11 @@ struct Label : public InputObject
 	Label();
 	Label(string const& txt);
 	Label(string const& txt, u16 X, u16 Y, FontDef fd, i8 align = ALLEGRO_ALIGN_CENTRE);
-	Label(string const& txt, u16 X, u16 Y, FontDef fd, i8 align, ALLEGRO_COLOR fg, optional<ALLEGRO_COLOR> shd = nullopt);
 };
 
 u32 mouse_killfocus(MouseEvent e);
+
+
+bool pop_okc(string const& title, string const& msg);
+bool pop_yn(string const& title, string const& msg);
+

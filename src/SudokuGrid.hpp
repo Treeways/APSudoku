@@ -1,6 +1,8 @@
 #pragma once
 
-#include "SudokuGUI.hpp"
+#include "Main.hpp"
+#include "GUI.hpp"
+#include "Font.hpp"
 
 namespace Sudoku
 {
@@ -29,12 +31,6 @@ namespace Sudoku
 		bool center_marks[9] = {0,0,0,0,0,0,0,0,0};
 		bool corner_marks[9] = {0,0,0,0,0,0,0,0,0};
 		u8 flags = 0;
-		
-		ALLEGRO_COLOR c_bg = C_WHITE;
-		ALLEGRO_COLOR c_border = C_LGRAY;
-		ALLEGRO_COLOR c_text = C_TXT;
-		ALLEGRO_COLOR c_sel = C_HIGHLIGHT;
-		ALLEGRO_COLOR c_sel2 = C_HIGHLIGHT2;
 		
 		void clear();
 		void clear_marks();

@@ -36,8 +36,8 @@ namespace Sudoku
 	}
 	void Cell::draw(u16 X, u16 Y, u16 W, u16 H) const
 	{
-		al_draw_filled_rectangle(X, Y, X+W-1, Y+H-1, c_bg);
-		al_draw_rectangle(X, Y, X+W-1, Y+H-1, c_border, 0.5);
+		al_draw_filled_rectangle(X, Y, X+W-1, Y+H-1, C_CELL_BG);
+		al_draw_rectangle(X, Y, X+W-1, Y+H-1, C_CELL_BORDER, 0.5);
 		
 		bool given = (flags & CFL_GIVEN);
 		if(val)
@@ -46,7 +46,7 @@ namespace Sudoku
 			ALLEGRO_FONT* f = fonts[FONT_ANSWER].get();
 			int tx = (X+W/2);
 			int ty = (Y+H/2)-(al_get_font_line_height(f)/2);
-			al_draw_text(f, given ? C_GIVEN : c_text, tx, ty, ALLEGRO_ALIGN_CENTRE, text.c_str());
+			al_draw_text(f, given ? C_CELL_GIVEN : C_CELL_TEXT, tx, ty, ALLEGRO_ALIGN_CENTRE, text.c_str());
 		}
 		else if(!given)
 		{
@@ -66,7 +66,7 @@ namespace Sudoku
 				ALLEGRO_FONT* f = fonts[font].get();
 				int tx = (X+W/2);
 				int ty = (Y+H/2)-(al_get_font_line_height(f)/2);
-				al_draw_text(f, c_text, tx, ty, ALLEGRO_ALIGN_CENTRE, cen_marks.c_str());
+				al_draw_text(f, C_CELL_TEXT, tx, ty, ALLEGRO_ALIGN_CENTRE, cen_marks.c_str());
 			}
 			if(!crn_marks.empty())
 			{
@@ -81,7 +81,7 @@ namespace Sudoku
 				for(int q = 0; q < 9 && q < crn_marks.size(); ++q)
 				{
 					buf[0] = crn_marks[q];
-					al_draw_text(f, c_text, X+xs[q], Y+ys[q] - fh/2, ALLEGRO_ALIGN_CENTRE, buf);
+					al_draw_text(f, C_CELL_TEXT, X+xs[q], Y+ys[q] - fh/2, ALLEGRO_ALIGN_CENTRE, buf);
 				}
 			}
 		}
@@ -89,10 +89,10 @@ namespace Sudoku
 	void Cell::draw_sel(u16 X, u16 Y, u16 W, u16 H, u8 hlbits, bool special) const
 	{
 		u16 HLW = 4, HLH = 4;
-		ALLEGRO_COLOR const* col = &c_sel;
+		ALLEGRO_COLOR const* col = &C_HIGHLIGHT;
 		if(special)
 		{
-			col = &c_sel2;
+			col = &C_HIGHLIGHT2;
 			HLW = 2; HLH = 2;
 			hlbits = ~0;
 		}
@@ -329,7 +329,7 @@ namespace Sudoku
 				Y = y + ((q/3)*(CELL_SZ*3)),
 				W = CELL_SZ*3, H = CELL_SZ*3;
 			scale_pos(X,Y,W,H);
-			al_draw_rectangle(X, Y, X+W-1, Y+H-1, C_BLACK, 2);
+			al_draw_rectangle(X, Y, X+W-1, Y+H-1, C_REGION_BORDER, 2);
 		}
 		for(u8 q = 0; q < 9*9; ++q) // Selected cell highlights
 		{
