@@ -69,6 +69,7 @@ void swap_screen(Screen scr)
 void build_gui()
 {
 	using namespace Sudoku;
+	FontDef fd(-22, false, BOLD_NONE);
 	{ // BG, to allow 'clicking off'
 		shared_ptr<ShapeRect> bg = make_shared<ShapeRect>(0,0,CANVAS_W,CANVAS_H,C_BG);
 		bg->onMouse = mouse_killfocus;
@@ -77,7 +78,7 @@ void build_gui()
 	}
 	{ // Swap buttons
 		#define ON_SWAP_BTN(b, scr) \
-		b->onMouse = [](MouseEvent e) \
+		b->onMouse = [](InputObject& ref,MouseEvent e) \
 			{ \
 				switch(e) \
 				{ \
@@ -85,9 +86,8 @@ void build_gui()
 						if(curscr != scr) swap_screen(scr); \
 						return MRET_TAKEFOCUS; \
 				} \
-				return b->handle_ev(e); \
+				return ref.handle_ev(e); \
 			}
-		FontDef fd(-22, false, BOLD_NONE);
 		swap_btns[0] = make_shared<Button>("Sudoku", fd);
 		swap_btns[1] = make_shared<Button>("Archipelago", fd);
 		swap_btns[2] = make_shared<Button>("Settings", fd);
@@ -104,14 +104,14 @@ void build_gui()
 	}
 	{ // Grid
 		grid = make_shared<Grid>(GRID_X, GRID_Y);
-		grid->onMouse = [](MouseEvent e)
+		grid->onMouse = [](InputObject& ref,MouseEvent e)
 			{
 				u32 ret = MRET_OK;
 				switch(e)
 				{
 					case MOUSE_LCLICK:
 						ret |= MRET_TAKEFOCUS;
-						if(!cur_input->shift())
+						if(!(cur_input->shift() || cur_input->ctrl_cmd()))
 							grid->deselect();
 					[[fallthrough]];
 					case MOUSE_LDOWN:
@@ -130,11 +130,79 @@ void build_gui()
 		gui_objects[SCR_SUDOKU].push_back(grid);
 	}
 	const int R_GRID_X = GRID_X+(CELL_SZ*9)+2;
-	{ // Test
-		difficulty = make_shared<RadioSet>(R_GRID_X+8,GRID_Y,
-			vector<string>({"Easy","Medium","Hard"}), FontDef(-20, false, BOLD_NONE), 4, 4, 2);
+	{ // Difficulty / game buttons
+		shared_ptr<Column> diff_column = make_shared<Column>(R_GRID_X+8,GRID_Y);
+		diff_column->align = ALLEGRO_ALIGN_LEFT;
+		
+		difficulty = make_shared<RadioSet>(vector<string>({"Easy","Medium","Hard"}), FontDef(-20, false, BOLD_NONE));
 		difficulty->select(0);
-		gui_objects[SCR_SUDOKU].push_back(difficulty);
+		difficulty->dis_proc = []()
+			{
+				return grid->active();
+			};
+		diff_column->add(difficulty);
+		
+		shared_ptr<Button> start_btn = make_shared<Button>("Start", fd);
+		diff_column->add(start_btn);
+		start_btn->onMouse = [](InputObject& ref,MouseEvent e)
+			{
+				switch(e)
+				{
+					case MOUSE_LCLICK:
+						if(optional<u8> diff = difficulty->get_sel())
+							grid->generate(*diff);
+						break;
+				}
+				return ref.handle_ev(e);
+			};
+		start_btn->dis_proc = []()
+			{
+				return grid->active();
+			};
+		
+		shared_ptr<Button> forfeit_btn = make_shared<Button>("Forfeit", fd);
+		diff_column->add(forfeit_btn);
+		forfeit_btn->onMouse = [](InputObject& ref,MouseEvent e)
+			{
+				switch(e)
+				{
+					case MOUSE_LCLICK:
+						if(pop_yn("Forfeit", "Quit solving this puzzle?"))
+							grid->clear();
+						break;
+				}
+				return ref.handle_ev(e);
+			};
+		forfeit_btn->dis_proc = []()
+			{
+				return !grid->active();
+			};
+		
+		shared_ptr<Button> check_btn = make_shared<Button>("Check", fd);
+		diff_column->add(check_btn);
+		check_btn->onMouse = [](InputObject& ref,MouseEvent e)
+			{
+				switch(e)
+				{
+					case MOUSE_LCLICK:
+						if(!grid->filled())
+							pop_inf("Unfinished","Not all cells are filled!");
+						else if(grid->check())
+						{
+							pop_inf("Correct","Puzzle solved correctly! WIP!");
+							grid->exit();
+						}
+						else pop_inf("Wrong", "Puzzle solution incorrect!");
+						break;
+				}
+				return ref.handle_ev(e);
+			};
+		check_btn->dis_proc = []()
+			{
+				return !grid->active();
+			};
+		
+		gui_objects[SCR_SUDOKU].push_back(diff_column);
 	}
 }
 

@@ -97,6 +97,8 @@ void DrawContainer::key_event(ALLEGRO_EVENT const& ev)
 }
 void DrawContainer::run_loop()
 {
+	al_get_mouse_state(cur_input);
+	cur_input->oldstate = cur_input->buttons;
 	redraw = true;
 	while(program_running && (!run_proc || run_proc()))
 	{
@@ -265,7 +267,9 @@ void GUIObject::on_disp_resize()
 }
 bool GUIObject::disabled() const
 {
-	return (flags&FL_DISABLED) || (draw_parent && draw_parent->disabled());
+	return (flags&FL_DISABLED)
+		|| (dis_proc && dis_proc())
+		|| (draw_parent && draw_parent->disabled());
 }
 
 void InputObject::unhover()
@@ -275,7 +279,7 @@ void InputObject::unhover()
 	if(mouseflags&MFL_HASMOUSE)
 	{
 		mouseflags &= ~MFL_HASMOUSE;
-		process(onMouse(MOUSE_HOVER_EXIT));
+		process(onMouse(*this,MOUSE_HOVER_EXIT));
 	}
 	if(cur_input->hovered == this)
 		cur_input->hovered = nullptr;
@@ -287,7 +291,8 @@ void InputObject::process(u32 retcode)
 	{
 		if(m.focused && m.focused != this)
 		{
-			u32 newret = m.focused->onMouse(MOUSE_LOSTFOCUS);
+			InputObject& ref = *(m.focused);
+			u32 newret = ref.onMouse(ref,MOUSE_LOSTFOCUS);
 			if(!(newret & MRET_TAKEFOCUS))
 				m.focused = this;
 		}
@@ -309,30 +314,30 @@ bool InputObject::mouse()
 		if(!(mouseflags&MFL_HASMOUSE))
 		{
 			mouseflags |= MFL_HASMOUSE;
-			process(onMouse(MOUSE_HOVER_ENTER));
+			process(onMouse(*this,MOUSE_HOVER_ENTER));
 		}
 		
 		if(disabled())
 			return true;
 		if(m.lrelease())
-			process(onMouse(MOUSE_LRELEASE));
+			process(onMouse(*this,MOUSE_LRELEASE));
 		else if(m.lrelease())
-			process(onMouse(MOUSE_RRELEASE));
+			process(onMouse(*this,MOUSE_RRELEASE));
 		else if(m.lrelease())
-			process(onMouse(MOUSE_MRELEASE));
+			process(onMouse(*this,MOUSE_MRELEASE));
 		
 		if(m.lclick())
-			process(onMouse(MOUSE_LCLICK));
+			process(onMouse(*this,MOUSE_LCLICK));
 		else if(m.rclick())
-			process(onMouse(MOUSE_RCLICK));
+			process(onMouse(*this,MOUSE_RCLICK));
 		else if(m.mclick())
-			process(onMouse(MOUSE_MCLICK));
+			process(onMouse(*this,MOUSE_MCLICK));
 		else if(m.buttons & 0x1)
-			process(onMouse(MOUSE_LDOWN));
+			process(onMouse(*this,MOUSE_LDOWN));
 		else if(m.buttons & 0x2)
-			process(onMouse(MOUSE_RDOWN));
+			process(onMouse(*this,MOUSE_RDOWN));
 		else if(m.buttons & 0x4)
-			process(onMouse(MOUSE_MDOWN));
+			process(onMouse(*this,MOUSE_MDOWN));
 		
 		return true;
 	}
@@ -393,6 +398,8 @@ void Column::realign(size_t start)
 		
 		obj->ypos(y + H);
 		H += obj->height() + spacing;
+		
+		obj->realign();
 	}
 	h = H+padding;
 }
@@ -448,6 +455,8 @@ void Row::realign(size_t start)
 		}
 		obj->xpos(x + W);
 		W += obj->width() + spacing;
+		
+		obj->realign();
 	}
 	w = W+padding;
 }
@@ -516,7 +525,7 @@ u32 RadioButton::handle_ev(MouseEvent e)
 bool RadioButton::mouse()
 {
 	if(!onMouse)
-		onMouse = [this](MouseEvent e){return this->handle_ev(e);};
+		onMouse = [](InputObject& ref,MouseEvent e){return ref.handle_ev(e);};
 	return InputObject::mouse();
 }
 u16 RadioButton::xpos() const
@@ -657,7 +666,7 @@ u32 Button::handle_ev(MouseEvent e)
 bool Button::mouse()
 {
 	if(!onMouse)
-		onMouse = [this](MouseEvent e){return this->handle_ev(e);};
+		onMouse = [](InputObject& ref,MouseEvent e){return ref.handle_ev(e);};
 	return InputObject::mouse();
 }
 
@@ -757,11 +766,12 @@ Label::Label(string const& txt, u16 X, u16 Y, FontDef fd, i8 al)
 {}
 
 //COMMON EVENT FUNCS
-u32 mouse_killfocus(MouseEvent e)
+u32 mouse_killfocus(InputObject& ref,MouseEvent e)
 {
 	if(e == MOUSE_LCLICK && cur_input->focused)
 	{
-		u32 newret = cur_input->focused->onMouse(MOUSE_LOSTFOCUS);
+		InputObject& ref = *(cur_input->focused);
+		u32 newret = ref.onMouse(ref,MOUSE_LOSTFOCUS);
 		if(!(newret & MRET_TAKEFOCUS))
 			cur_input->focused = nullptr;
 	}
@@ -769,14 +779,14 @@ u32 mouse_killfocus(MouseEvent e)
 }
 
 //POPUPS
-bool pop_confirm(string const& title, string const& msg, string truestr, string falsestr)
+optional<u8> pop_confirm(string const& title, string const& msg, vector<string> const& strs)
 {
 	Dialog popup;
 	popups.emplace_back(&popup);
 	
 	bool redraw = true;
 	bool running = true;
-	bool ret = false;
+	optional<u8> ret;
 	
 	const uint POP_W = CANVAS_W/2;
 	const uint BTN_H = 32, BTN_PAD = 5;
@@ -786,8 +796,8 @@ bool pop_confirm(string const& title, string const& msg, string truestr, string 
 	const uint TITLE_H = 16, TITLE_VSPC = 2, TITLE_HPAD = 5;
 	
 	shared_ptr<ShapeRect> bg, win, titlebar;
-	shared_ptr<Button> ok, cancel;
 	vector<shared_ptr<Label>> lbls;
+	shared_ptr<Row> btnrow;
 	{ //Text Label (alters popup size, must go first)
 		const u16 TXT_PAD = 15, TXT_VSPC = 3;
 		u16 new_h = BTN_H + 2*BTN_PAD + 2*TXT_PAD;
@@ -878,47 +888,35 @@ bool pop_confirm(string const& title, string const& msg, string truestr, string 
 		titlebar->onMouse = mouse_killfocus;
 	}
 	{ //Buttons
-		ok = make_shared<Button>(truestr);
-		ok->x = CANVAS_W/2 - ok->w;
-		ok->y = POP_Y+POP_H - BTN_H - BTN_PAD;
-		ok->h = BTN_H;
-		ok->onMouse = [&ret,&running,&ok](MouseEvent e)
-			{
-				switch(e)
+		btnrow = make_shared<Row>(0,0,BTN_PAD,2,ALLEGRO_ALIGN_CENTRE);
+		for(size_t q = 0; q < strs.size(); ++q)
+		{
+			shared_ptr<Button> btn = make_shared<Button>(strs[q]);
+			btn->h = BTN_H;
+			btn->onMouse = [&ret,&running,q](InputObject& ref,MouseEvent e)
 				{
-					case MOUSE_LCLICK:
-						ret = true;
-						running = false;
-						ok->flags |= FL_SELECTED;
-						return MRET_TAKEFOCUS;
-				}
-				return ok->handle_ev(e);
-			};
-		cancel = make_shared<Button>(falsestr);
-		cancel->x = CANVAS_W/2;
-		cancel->y = POP_Y+POP_H - BTN_H - BTN_PAD;
-		cancel->h = BTN_H;
-		cancel->onMouse = [&ret,&running,&cancel](MouseEvent e)
-			{
-				switch(e)
-				{
-					case MOUSE_LCLICK:
-						ret = false;
-						running = false;
-						cancel->flags |= FL_SELECTED;
-						return MRET_TAKEFOCUS;
-				}
-				return cancel->handle_ev(e);
-			};
-		
+					switch(e)
+					{
+						case MOUSE_LCLICK:
+							ret = u8(q);
+							running = false;
+							ref.flags |= FL_SELECTED;
+							return MRET_TAKEFOCUS;
+					}
+					return ref.handle_ev(e);
+				};
+			btnrow->add(btn);
+		}
+		btnrow->x = (CANVAS_W - btnrow->width()) / 2;
+		btnrow->y = POP_Y+POP_H-btnrow->height();
+		btnrow->realign();
 	}
 	popup.push_back(bg);
 	popup.push_back(win);
 	popup.push_back(titlebar);
 	for(shared_ptr<Label>& lbl : lbls)
 		popup.push_back(lbl);
-	popup.push_back(ok);
-	popup.push_back(cancel);
+	popup.push_back(btnrow);
 	
 	on_resize();
 	popup.run_proc = [&running](){return running;};
@@ -928,10 +926,14 @@ bool pop_confirm(string const& title, string const& msg, string truestr, string 
 }
 bool pop_okc(string const& title, string const& msg)
 {
-	return pop_confirm(title, msg, "OK", "Cancel");
+	return 0==pop_confirm(title, msg, {"OK", "Cancel"});
 }
 bool pop_yn(string const& title, string const& msg)
 {
-	return pop_confirm(title, msg, "Yes", "No");
+	return 0==pop_confirm(title, msg, {"Yes", "No"});
+}
+void pop_inf(string const& title, string const& msg)
+{
+	pop_confirm(title, msg, {"OK"});
 }
 

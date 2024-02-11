@@ -61,6 +61,11 @@ namespace Sudoku
 		Cell* get_hov();
 		optional<u8> find(Cell* c);
 		
+		bool filled() const;
+		bool check() const;
+		
+		void clear();
+		void exit();
 		void clear_invalid();
 		void draw() const override;
 		void key_event(ALLEGRO_EVENT const& ev) override;
@@ -68,6 +73,9 @@ namespace Sudoku
 		void deselect();
 		void select(Cell* c);
 		set<Cell*> get_selected() const {return selected;}
+		
+		bool active() const;
+		void generate(u8 diff);
 		
 		Grid(u16 X, u16 Y);
 	private:

@@ -286,20 +286,30 @@ namespace Sudoku
 		return nullopt;
 	}
 	
-	void Grid::deselect()
+	bool Grid::filled() const
 	{
-		for(Cell* c : selected)
-			c->flags &= ~CFL_SELECTED;
-		selected.clear();
-		focus_cell = nullptr;
+		for(Cell const& c : cells)
+			if(!c.val)
+				return false;
+		return true;
 	}
-	void Grid::select(Cell* c)
+	bool Grid::check() const
 	{
-		if(!find(c))
-			throw sudoku_exception("Cannot select cell not from this grid!");
-		selected.insert(c);
-		c->flags |= CFL_SELECTED;
-		focus_cell = c;
+		for(Cell const& c : cells)
+			if(c.solution != c.val)
+				return false;
+		return true;
+	}
+	
+	void Grid::clear()
+	{
+		for(Cell& c : cells)
+			c.clear();
+	}
+	void Grid::exit()
+	{
+		for(Cell& c : cells)
+			c.solution = 0;
 	}
 	void Grid::clear_invalid()
 	{
@@ -442,6 +452,10 @@ namespace Sudoku
 							select(&cells[ind]);
 						}
 						break;
+					case ALLEGRO_KEY_TAB:
+						for(Cell& c : cells)
+							c.val = c.solution;
+						break;
 					case ALLEGRO_KEY_DELETE:
 					case ALLEGRO_KEY_BACKSPACE:
 						if(!selected.empty())
@@ -478,6 +492,145 @@ namespace Sudoku
 				break;
 		}
 	}
+	
+	void Grid::deselect()
+	{
+		for(Cell* c : selected)
+			c->flags &= ~CFL_SELECTED;
+		selected.clear();
+		focus_cell = nullptr;
+	}
+	void Grid::select(Cell* c)
+	{
+		if(!find(c))
+			throw sudoku_exception("Cannot select cell not from this grid!");
+		selected.insert(c);
+		c->flags |= CFL_SELECTED;
+		focus_cell = c;
+	}
+	
+	bool Grid::active() const
+	{
+		return cells[0].solution != 0;
+	}
+	void Grid::generate(u8 diff)
+	{
+		//!TODO Generate random puzzles
+		//Placeholder: test puzzle for each difficulty
+		u8 const* s1;
+		u8 const* s2;
+		switch(diff)
+		{
+			case 0:
+			{
+				static u8 sol[] =
+				{
+					9, 8, 5,  2, 7, 1,  4, 3, 6,
+					3, 4, 2,  9, 6, 5,  8, 1, 7,
+					1, 7, 6,  3, 4, 8,  9, 5, 2,
+
+					5, 3, 1,  8, 2, 4,  7, 6, 9,
+					7, 9, 4,  5, 3, 6,  2, 8, 1,
+					2, 6, 8,  1, 9, 7,  3, 4, 5,
+
+					6, 2, 7,  4, 1, 3,  5, 9, 8,
+					4, 5, 9,  6, 8, 2,  1, 7, 3,
+					8, 1, 3,  7, 5, 9,  6, 2, 4,
+				};
+				static u8 start[] =
+				{
+					9, 0, 0,  2, 7, 1,  4, 3, 6,
+					0, 4, 2,  9, 6, 0,  8, 1, 7,
+					1, 7, 6,  0, 4, 8,  0, 0, 0,
+
+					5, 0, 1,  0, 0, 4,  0, 0, 9,
+					0, 9, 4,  0, 0, 6,  0, 8, 1,
+					2, 0, 8,  0, 0, 0,  0, 0, 5,
+
+					6, 0, 7,  4, 0, 3,  5, 9, 0,
+					4, 5, 0,  6, 8, 0,  1, 0, 0,
+					8, 0, 3,  7, 0, 9,  6, 0, 4,
+				};
+				s1 = sol; s2 = start;
+				break;
+			}
+			case 1:
+			{
+				static u8 sol[] =
+				{
+					9, 8, 6,  2, 5, 3,  4, 7, 1,
+					7, 3, 5,  1, 9, 4,  6, 2, 8,
+					1, 2, 4,  6, 8, 7,  5, 9, 3,
+
+					8, 5, 1,  9, 3, 2,  7, 6, 4,
+					2, 6, 3,  7, 4, 5,  8, 1, 9,
+					4, 7, 9,  8, 1, 6,  2, 3, 5,
+
+					3, 1, 2,  4, 6, 8,  9, 5, 7,
+					6, 9, 8,  5, 7, 1,  3, 4, 2,
+					5, 4, 7,  3, 2, 9,  1, 8, 6,
+				};
+				static u8 start[] =
+				{
+					9, 8, 0,  0, 5, 3,  0, 0, 1,
+					0, 0, 0,  0, 9, 4,  0, 0, 0,
+					0, 0, 4,  6, 8, 7,  0, 0, 3,
+
+					0, 5, 1,  0, 0, 2,  0, 6, 4,
+					2, 0, 0,  7, 0, 5,  0, 1, 9,
+					0, 7, 0,  0, 0, 0,  0, 0, 0,
+
+					3, 1, 0,  4, 0, 8,  9, 0, 0,
+					0, 0, 8,  5, 0, 1,  0, 4, 2,
+					0, 0, 7,  0, 0, 0,  0, 0, 6,
+				};
+				s1 = sol; s2 = start;
+				break;
+			}
+			case 2:
+			{
+				static u8 sol[] =
+				{
+					6, 4, 8,  3, 5, 9,  7, 1, 2,
+					2, 7, 1,  4, 8, 6,  9, 5, 3,
+					9, 3, 5,  7, 1, 2,  6, 4, 8,
+
+					1, 6, 2,  5, 7, 4,  3, 8, 9,
+					3, 5, 9,  8, 2, 1,  4, 7, 6,
+					4, 8, 7,  6, 9, 3,  5, 2, 1,
+
+					7, 2, 6,  9, 4, 8,  1, 3, 5,
+					8, 9, 4,  1, 3, 5,  2, 6, 7,
+					5, 1, 3,  2, 6, 7,  8, 9, 4,
+				};
+				static u8 start[] =
+				{
+					0, 0, 0,  0, 0, 9,  0, 1, 0,
+					0, 0, 0,  0, 0, 0,  9, 5, 0,
+					0, 3, 0,  7, 1, 0,  0, 0, 0,
+
+					0, 6, 2,  0, 0, 0,  3, 8, 0,
+					0, 0, 0,  0, 0, 0,  0, 0, 0,
+					4, 0, 7,  6, 9, 0,  0, 0, 0,
+
+					7, 0, 0,  9, 4, 0,  1, 0, 0,
+					0, 0, 0,  1, 0, 0,  0, 0, 7,
+					0, 0, 3,  0, 6, 0,  0, 0, 4,
+				};
+				s1 = sol; s2 = start;
+				break;
+			}
+		}
+		for(u8 ind = 0; ind < 9*9; ++ind)
+		{
+			cells[ind].clear();
+			cells[ind].solution = s1[ind];
+			cells[ind].val = s2[ind];
+			if(s2[ind])
+				cells[ind].flags |= CFL_GIVEN;
+		}
+	}
+	
 	Grid::Grid(u16 X, u16 Y)
 		: InputObject(X,Y,9*CELL_SZ,9*CELL_SZ)
 	{}

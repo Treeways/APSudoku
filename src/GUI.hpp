@@ -128,10 +128,11 @@ enum MouseEvent
 struct DrawWrapper;
 struct GUIObject
 {
-	u8 flags = 0;
+	u8 flags;
 	std::function<void()> onResizeDisplay;
+	std::function<bool()> dis_proc;
 	
-	GUIObject const* draw_parent = nullptr;
+	GUIObject const* draw_parent;
 	
 	void on_disp_resize();
 	virtual void draw() const {};
@@ -144,14 +145,17 @@ struct GUIObject
 	virtual u16 height() const {return 0;}
 	virtual bool disabled() const;
 	virtual void key_event(ALLEGRO_EVENT const& ev) {}
-	GUIObject() = default;
+	virtual void realign(size_t start = 0) {}
+	GUIObject()
+		: flags(0), onResizeDisplay(), dis_proc(), draw_parent(nullptr)
+	{}
 };
 
 struct InputObject : public GUIObject
 {
 	u16 x, y, w, h;
 	u8 mouseflags;
-	std::function<u32(MouseEvent)> onMouse;
+	std::function<u32(InputObject&,MouseEvent)> onMouse;
 	virtual bool mouse() override;
 	virtual u16 xpos() const override {return x;}
 	virtual u16 ypos() const override {return y;}
@@ -159,12 +163,14 @@ struct InputObject : public GUIObject
 	virtual void ypos(u16 v) override {y = v + (y-ypos());}
 	virtual u16 width() const override {return w;}
 	virtual u16 height() const override {return h;}
+	virtual u32 handle_ev(MouseEvent ev) {return MRET_OK;};
 	void unhover();
-	InputObject() = default;
+	InputObject()
+		: GUIObject(), x(0), y(0), w(0), h(0), mouseflags(0), onMouse() {}
 	InputObject(u16 x, u16 y)
-		: x(x), y(y), w(0), h(0), mouseflags(0), onMouse() {}
+		: GUIObject(), x(x), y(y), w(0), h(0), mouseflags(0), onMouse() {}
 	InputObject(u16 x, u16 y, u16 w, u16 h)
-		: x(x), y(y), w(w), h(h), mouseflags(0), onMouse() {}
+		: GUIObject(), x(x), y(y), w(w), h(h), mouseflags(0), onMouse() {}
 private:
 	void process(u32 retcode);
 };
@@ -233,7 +239,7 @@ struct RadioButton : public InputObject
 		: InputObject(X,Y), radius(rad), text(txt), font(fnt), parent(nullptr)
 	{}
 	
-	u32 handle_ev(MouseEvent ev);
+	u32 handle_ev(MouseEvent ev) override;
 };
 struct RadioSet : public Column
 {
@@ -285,7 +291,7 @@ struct Button : public InputObject
 	Button(string const& txt, FontDef fnt, u16 X, u16 Y);
 	Button(string const& txt, FontDef fnt, u16 X, u16 Y, u16 W, u16 H);
 	
-	u32 handle_ev(MouseEvent ev);
+	u32 handle_ev(MouseEvent ev) override;
 };
 
 struct ShapeRect : public InputObject
@@ -321,9 +327,10 @@ struct Label : public InputObject
 	Label(string const& txt, u16 X, u16 Y, FontDef fd, i8 align = ALLEGRO_ALIGN_CENTRE);
 };
 
-u32 mouse_killfocus(MouseEvent e);
+u32 mouse_killfocus(InputObject& ref,MouseEvent e);
 
 
 bool pop_okc(string const& title, string const& msg);
 bool pop_yn(string const& title, string const& msg);
+void pop_inf(string const& title, string const& msg);
 
