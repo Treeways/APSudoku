@@ -342,7 +342,7 @@ void setup_allegro()
 	al_install_keyboard();
 	
 	al_set_new_display_flags(ALLEGRO_RESIZABLE);
-	display = al_create_display(CANVAS_W, CANVAS_H);
+	display = al_create_display(CANVAS_W*2, CANVAS_H*2);
 	if(!display)
 		fail("Failed to create display!");
 	
@@ -366,6 +366,8 @@ void setup_allegro()
 	
 	al_set_window_constraints(display, CANVAS_W, CANVAS_H, 0, 0);
 	al_apply_window_constraints(display, true);
+	
+	on_resize();
 	
 	init_fonts();
 }
