@@ -16,6 +16,13 @@ ALLEGRO_COLOR
 	, C_BUTTON_HOVBG = C_LGRAY
 	, C_BUTTON_BORDER = C_BLACK
 	, C_BUTTON_DISTXT = C_LGRAY
+	, C_RAD_BG = C_WHITE
+	, C_RAD_HOVBG = C_LGRAY
+	, C_RAD_FG = C_BLACK
+	, C_RAD_DIS_BG = C_LGRAY
+	, C_RAD_DIS_FG = C_DGRAY
+	, C_RAD_BORDER = C_BLACK
+	, C_RAD_TXT = C_LBL_TEXT
 	, C_HIGHLIGHT = al_map_rgb(76, 164, 255)
 	, C_HIGHLIGHT2 = al_map_rgb(255, 164, 76)
 	;
@@ -53,24 +60,39 @@ void DrawContainer::run()
 }
 void DrawContainer::draw() const
 {
-	for(DrawnObject const* obj : *this)
+	for(shared_ptr<GUIObject> const& obj : *this)
+	{
+		auto old_parent = obj->draw_parent;
+		
+		obj->draw_parent = draw_parent;
 		obj->draw();
+		obj->draw_parent = old_parent;
+	}
 }
 bool DrawContainer::mouse()
 {
 	for(auto it = rbegin(); it != rend(); ++it)
-		if((*it)->mouse())
+	{
+		auto const& obj = (*it);
+		auto old_parent = obj->draw_parent;
+		
+		obj->draw_parent = draw_parent;
+		bool ret = obj->mouse();
+		obj->draw_parent = old_parent;
+		
+		if(ret)
 			return true;
+	}
 	return false;
 }
 void DrawContainer::on_disp_resize()
 {
-	for(DrawnObject* obj : *this)
+	for(shared_ptr<GUIObject>& obj : *this)
 		obj->on_disp_resize();
 }
 void DrawContainer::key_event(ALLEGRO_EVENT const& ev)
 {
-	for(DrawnObject* obj : *this)
+	for(shared_ptr<GUIObject>& obj : *this)
 		obj->key_event(ev);
 }
 void DrawContainer::run_loop()
@@ -181,6 +203,14 @@ void update_scale()
 	render_yscale = double(render_resy)/CANVAS_H;
 }
 
+void scale_min(u16& v)
+{
+	v *= std::min(render_xscale,render_yscale);
+}
+void scale_max(u16& v)
+{
+	v *= std::max(render_xscale,render_yscale);
+}
 void scale_x(u16& x)
 {
 	x *= render_xscale;
@@ -199,6 +229,14 @@ void scale_pos(u16& x, u16& y, u16& w, u16& h)
 	scale_pos(x,y);
 	w *= render_xscale;
 	h *= render_yscale;
+}
+void unscale_min(u16& v)
+{
+	v /= std::min(render_xscale,render_yscale);
+}
+void unscale_max(u16& v)
+{
+	v /= std::max(render_xscale,render_yscale);
 }
 void unscale_x(u16& x)
 {
@@ -220,10 +258,14 @@ void unscale_pos(u16& x, u16& y, u16& w, u16& h)
 	h /= render_yscale;
 }
 
-void DrawnObject::on_disp_resize()
+void GUIObject::on_disp_resize()
 {
 	if(onResizeDisplay)
 		onResizeDisplay();
+}
+bool GUIObject::disabled() const
+{
+	return (flags&FL_DISABLED) || (draw_parent && draw_parent->disabled());
 }
 
 void InputObject::unhover()
@@ -257,7 +299,8 @@ bool InputObject::mouse()
 	if(!onMouse)
 		return false;
 	auto& m = *cur_input;
-	bool inbounds = (m.x >= x && m.x < x+w) && (m.y >= y && m.y < y+h);
+	u16 X = xpos(), Y = ypos(), W = width(), H = height();
+	bool inbounds = (m.x >= X && m.x < X+W) && (m.y >= Y && m.y < Y+H);
 	if(inbounds)
 	{
 		if(m.hovered && m.hovered != this)
@@ -269,6 +312,8 @@ bool InputObject::mouse()
 			process(onMouse(MOUSE_HOVER_ENTER));
 		}
 		
+		if(disabled())
+			return true;
 		if(m.lrelease())
 			process(onMouse(MOUSE_LRELEASE));
 		else if(m.lrelease())
@@ -298,6 +343,18 @@ bool InputObject::mouse()
 	}
 }
 
+// DrawWrapper
+void DrawWrapper::draw() const
+{
+	const_cast<DrawContainer*>(&cont)->draw_parent = this;
+	cont.draw();
+}
+bool DrawWrapper::mouse()
+{
+	cont.draw_parent = this;
+	return cont.mouse();
+}
+
 // Column
 u16 Column::width() const
 {
@@ -306,7 +363,7 @@ u16 Column::width() const
 u16 Column::height() const
 {
 	u16 H = 2*padding;
-	for(DrawnObject const* obj : cont)
+	for(shared_ptr<GUIObject> const& obj : cont)
 		H += obj->height() + spacing;
 	return H;
 }
@@ -315,30 +372,31 @@ void Column::realign(size_t start)
 	u16 H = padding;
 	for(size_t q = 0; q < start; ++q)
 	{
-		DrawnObject* obj = cont[q];
+		shared_ptr<GUIObject>& obj = cont[q];
 		H += obj->height() + spacing;
 	}
 	for(size_t q = start; q < cont.size(); ++q)
 	{
-		DrawnObject* obj = cont[q];
+		shared_ptr<GUIObject>& obj = cont[q];
 		switch(align)
 		{
 			default:
-				obj->x = x+padding;
+				obj->xpos(x+padding);
 				break;
 			case ALLEGRO_ALIGN_CENTRE:
-				obj->x = x+padding+(w-obj->width())/2;
+				obj->xpos(x+padding+(w-obj->width())/2);
 				break;
 			case ALLEGRO_ALIGN_RIGHT:
-				obj->x = x+padding+(w-obj->width());
+				obj->xpos(x+padding+(w-obj->width()));
 				break;
 		}
-		obj->y = y + H;
+		
+		obj->ypos(y + H);
 		H += obj->height() + spacing;
 	}
 	h = H+padding;
 }
-void Column::add(DrawnObject* obj)
+void Column::add(shared_ptr<GUIObject> obj)
 {
 	auto objw = obj->width();
 	if(objw > w)
@@ -357,7 +415,7 @@ Column::Column(u16 X, u16 Y, u16 padding, u16 spacing, i8 align)
 u16 Row::width() const
 {
 	u16 W = 2*padding;
-	for(DrawnObject const* obj : cont)
+	for(shared_ptr<GUIObject> const& obj : cont)
 		W += obj->width() + spacing;
 	return W;
 }
@@ -370,30 +428,30 @@ void Row::realign(size_t start)
 	u16 W = padding;
 	for(size_t q = 0; q < start; ++q)
 	{
-		DrawnObject* obj = cont[q];
+		shared_ptr<GUIObject>& obj = cont[q];
 		W += obj->width() + spacing;
 	}
 	for(size_t q = start; q < cont.size(); ++q)
 	{
-		DrawnObject* obj = cont[q];
+		shared_ptr<GUIObject>& obj = cont[q];
 		switch(align)
 		{
 			default:
-				obj->y = y+padding;
+				obj->ypos(y+padding);
 				break;
 			case ALLEGRO_ALIGN_CENTRE:
-				obj->y = y+padding+(h-obj->height())/2;
+				obj->ypos(y+padding+(h-obj->height())/2);
 				break;
 			case ALLEGRO_ALIGN_RIGHT:
-				obj->y = y+padding+(h-obj->height());
+				obj->ypos(y+padding+(h-obj->height()));
 				break;
 		}
-		obj->x = x + W;
+		obj->xpos(x + W);
 		W += obj->width() + spacing;
 	}
 	w = W+padding;
 }
-void Row::add(DrawnObject* obj)
+void Row::add(shared_ptr<GUIObject> obj)
 {
 	auto objh = obj->height();
 	if(objh > h)
@@ -409,6 +467,151 @@ Row::Row(u16 X, u16 Y, u16 padding, u16 spacing, i8 align)
 	align(align)
 {}
 
+// RadioButton
+void RadioButton::draw() const
+{
+	bool dis = disabled();
+	bool sel = (flags&FL_SELECTED);
+	bool hov = !dis && (flags&FL_HOVERED);
+	u16 CX = x, CY = y;
+	u16 X = x + radius + pad, Y = CY;
+	u16 RAD = radius;
+	scale_pos(CX,CY);
+	scale_pos(X,Y);
+	scale_min(RAD);
+	al_draw_filled_circle(CX, CY, RAD+pad/2, C_RAD_BORDER);
+	ALLEGRO_COLOR const& bgc = dis ? C_RAD_DIS_BG : (hov ? C_RAD_HOVBG : C_RAD_BG);
+	ALLEGRO_COLOR const& fgc = dis ? C_RAD_DIS_FG : C_RAD_FG;
+	al_draw_filled_circle(CX, CY, RAD, bgc);
+	if(sel)
+		al_draw_filled_circle(CX, CY, RAD-4, fgc);
+	ALLEGRO_FONT* f = font.get();
+	Y = CY - al_get_font_line_height(f) / 2;
+	if(!text.empty())
+		al_draw_text(f, C_RAD_TXT, X, Y, ALLEGRO_ALIGN_LEFT, text.c_str());
+}
+u32 RadioButton::handle_ev(MouseEvent e)
+{
+	switch(e)
+	{
+		case MOUSE_LCLICK:
+			if(flags&FL_SELECTED)
+				break;
+			if(parent)
+			{
+				parent->deselect();
+				flags |= FL_SELECTED;
+			}
+			else flags ^= FL_SELECTED;
+			return MRET_TAKEFOCUS;
+		case MOUSE_HOVER_ENTER:
+			flags |= FL_HOVERED;
+			break;
+		case MOUSE_HOVER_EXIT:
+			flags &= ~FL_HOVERED;
+			break;
+	}
+	return MRET_OK;
+}
+bool RadioButton::mouse()
+{
+	if(!onMouse)
+		onMouse = [this](MouseEvent e){return this->handle_ev(e);};
+	return InputObject::mouse();
+}
+u16 RadioButton::xpos() const
+{
+	return x - radius - pad;
+}
+u16 RadioButton::ypos() const
+{
+	return y - height()/2;
+}
+u16 RadioButton::width() const
+{
+	ALLEGRO_FONT* f = font.get_base();
+	return radius*2 + pad*2 + al_get_text_width(f, text.c_str());
+}
+u16 RadioButton::height() const
+{
+	ALLEGRO_FONT* f = font.get_base();
+	return std::max(al_get_font_line_height(f), radius*2);
+}
+bool RadioButton::disabled() const
+{
+	return InputObject::disabled() || (parent && parent->disabled());
+}
+
+// RadioSet
+void RadioSet::init(vector<string>& opts, FontDef fnt, u16 rad)
+{
+	cont.clear();
+	size_t ind = 0;
+	for(string const& str : opts)
+	{
+		shared_ptr<RadioButton> rb = make_shared<RadioButton>(str, fnt, rad);
+		add(rb);
+		rb->parent = this;
+		++ind;
+	}
+}
+void RadioSet::deselect()
+{
+	for(shared_ptr<GUIObject>& obj : cont)
+		obj->flags &= ~FL_SELECTED;
+}
+optional<u16> RadioSet::get_sel()
+{
+	u16 ind = 0;
+	for(shared_ptr<GUIObject>& rb : cont)
+	{
+		if(rb->flags & FL_SELECTED)
+			return ind;
+		++ind;
+	}
+	return nullopt;
+}
+void RadioSet::select(u16 targ)
+{
+	u16 ind = 0;
+	for(shared_ptr<GUIObject>& rb : cont)
+	{
+		if(ind == targ)
+			rb->flags |= FL_SELECTED;
+		else rb->flags &= ~FL_SELECTED;
+		++ind;
+	}
+}
+
+// CheckBox
+void CheckBox::draw() const
+{
+	bool dis = disabled();
+	bool sel = (flags&FL_SELECTED);
+	bool hov = !dis && (flags&FL_HOVERED);
+	u16 CX = x, CY = y;
+	u16 X = x + radius + pad, Y = CY;
+	u16 RAD = radius;
+	scale_pos(CX,CY);
+	scale_pos(X,Y);
+	scale_min(RAD);
+	u16 R = RAD+pad/2;
+	al_draw_filled_rectangle(CX-R, CY-R, CX+R, CY+R, C_RAD_BORDER);
+	ALLEGRO_COLOR const& bgc = dis ? C_RAD_DIS_BG : (hov ? C_RAD_HOVBG : C_RAD_BG);
+	ALLEGRO_COLOR const& fgc = dis ? C_RAD_DIS_FG : C_RAD_FG;
+	R = RAD;
+	al_draw_filled_rectangle(CX-R, CY-R, CX+R, CY+R, bgc);
+	if(sel)
+	{
+		R = RAD-4;
+		al_draw_filled_rectangle(CX-R, CY-R, CX+R, CY+R, fgc);
+	}
+	ALLEGRO_FONT* f = font.get();
+	Y = CY - al_get_font_line_height(f) / 2;
+	if(!text.empty())
+		al_draw_text(f, C_RAD_TXT, X, Y, ALLEGRO_ALIGN_LEFT, text.c_str());
+}
+
 // Button
 void Button::draw() const
 {
@@ -417,7 +620,7 @@ void Button::draw() const
 	
 	ALLEGRO_COLOR const* fg = &C_BUTTON_FG;
 	ALLEGRO_COLOR const* bg = &C_BUTTON_BG;
-	bool dis = flags&FL_DISABLED;
+	bool dis = disabled();
 	bool sel = !dis && (flags&FL_SELECTED);
 	bool hov = !dis && (flags&FL_HOVERED);
 	if(sel)
@@ -432,7 +635,7 @@ void Button::draw() const
 	// Draw the border 
 	al_draw_rectangle(X, Y, X+W-1, Y+H-1, C_BUTTON_BORDER, 1);
 	// Finally, the text
-	ALLEGRO_FONT* f = fonts[FONT_BUTTON].get();
+	ALLEGRO_FONT* f = font.get();
 	int tx = (X+W/2);
 	int ty = (Y+H/2)-(al_get_font_line_height(f)/2);
 	al_draw_text(f, *fg, tx, ty, ALLEGRO_ALIGN_CENTRE, text.c_str());
@@ -459,16 +662,20 @@ bool Button::mouse()
 }
 
 Button::Button()
-	: InputObject(0, 0, 96, 32), flags(0)
+	: InputObject(0, 0, 96, 32), font(FontDef(-20, false, BOLD_NONE))
 {}
 Button::Button(string const& txt)
-	: InputObject(0, 0, 96, 32), flags(0), text(txt)
+	: InputObject(0, 0, 96, 32), font(FontDef(-20, false, BOLD_NONE)),
+		text(txt)
 {}
-Button::Button(string const& txt, u16 X, u16 Y)
-	: InputObject(X, Y, 96, 32), flags(0), text(txt)
+Button::Button(string const& txt, FontDef fnt)
+	: InputObject(0, 0, 96, 32), font(fnt), text(txt)
 {}
-Button::Button(string const& txt, u16 X, u16 Y, u16 W, u16 H)
-	: InputObject(X, Y, W, H), flags(0), text(txt)
+Button::Button(string const& txt, FontDef fnt, u16 X, u16 Y)
+	: InputObject(X, Y, 96, 32), font(fnt), text(txt)
+{}
+Button::Button(string const& txt, FontDef fnt, u16 X, u16 Y, u16 W, u16 H)
+	: InputObject(X, Y, W, H), font(fnt), text(txt)
 {}
 
 // ShapeRect
@@ -578,9 +785,9 @@ bool pop_confirm(string const& title, string const& msg, string truestr, string 
 	uint POP_X, POP_Y;
 	const uint TITLE_H = 16, TITLE_VSPC = 2, TITLE_HPAD = 5;
 	
-	ShapeRect bg, win, titlebar;
-	Button ok, cancel;
-	vector<Label> lbls;
+	shared_ptr<ShapeRect> bg, win, titlebar;
+	shared_ptr<Button> ok, cancel;
+	vector<shared_ptr<Label>> lbls;
 	{ //Text Label (alters popup size, must go first)
 		const u16 TXT_PAD = 15, TXT_VSPC = 3;
 		u16 new_h = BTN_H + 2*BTN_PAD + 2*TXT_PAD;
@@ -653,65 +860,65 @@ bool pop_confirm(string const& title, string const& msg, string truestr, string 
 		u16 TXT_Y = POP_Y+TXT_PAD;
 		for(string const& s : texts)
 		{
-			lbls.emplace_back(s, TXT_CX, TXT_Y, fd, ALLEGRO_ALIGN_CENTRE);
+			lbls.emplace_back(make_shared<Label>(s, TXT_CX, TXT_Y, fd, ALLEGRO_ALIGN_CENTRE));
 			TXT_Y += fh+TXT_VSPC;
 		}
 		
 		FontDef title_fd(-i16(TITLE_H-TITLE_VSPC*2), true, BOLD_SEMI);
-		lbls.emplace_back(title, POP_X+TITLE_HPAD, POP_Y-TITLE_H+TITLE_VSPC, title_fd, ALLEGRO_ALIGN_LEFT);
+		lbls.emplace_back(make_shared<Label>(title, POP_X+TITLE_HPAD, POP_Y-TITLE_H+TITLE_VSPC, title_fd, ALLEGRO_ALIGN_LEFT));
 	}
 	{ //BG, to allow 'clicking off' / shade the background
-		bg = ShapeRect(0,0,CANVAS_W,CANVAS_H,al_map_rgba(0,0,0,128));
-		bg.onMouse = mouse_killfocus;
+		bg = make_shared<ShapeRect>(0,0,CANVAS_W,CANVAS_H,al_map_rgba(0,0,0,128));
+		bg->onMouse = mouse_killfocus;
 		
-		win = ShapeRect(POP_X,POP_Y,POP_W,POP_H,C_BG,C_BLACK,4);
-		win.onMouse = mouse_killfocus;
+		win = make_shared<ShapeRect>(POP_X,POP_Y,POP_W,POP_H,C_BG,C_BLACK,4);
+		win->onMouse = mouse_killfocus;
 		
-		titlebar = ShapeRect(POP_X,POP_Y-TITLE_H,POP_W,TITLE_H,C_BG,C_BLACK,4);
-		titlebar.onMouse = mouse_killfocus;
+		titlebar = make_shared<ShapeRect>(POP_X,POP_Y-TITLE_H,POP_W,TITLE_H,C_BG,C_BLACK,4);
+		titlebar->onMouse = mouse_killfocus;
 	}
 	{ //Buttons
-		ok = Button(truestr);
-		ok.x = CANVAS_W/2 - ok.w;
-		ok.y = POP_Y+POP_H - BTN_H - BTN_PAD;
-		ok.h = BTN_H;
-		ok.onMouse = [&ret,&running,&ok](MouseEvent e)
+		ok = make_shared<Button>(truestr);
+		ok->x = CANVAS_W/2 - ok->w;
+		ok->y = POP_Y+POP_H - BTN_H - BTN_PAD;
+		ok->h = BTN_H;
+		ok->onMouse = [&ret,&running,&ok](MouseEvent e)
 			{
 				switch(e)
 				{
 					case MOUSE_LCLICK:
 						ret = true;
 						running = false;
-						ok.flags |= FL_SELECTED;
+						ok->flags |= FL_SELECTED;
 						return MRET_TAKEFOCUS;
 				}
-				return ok.handle_ev(e);
+				return ok->handle_ev(e);
 			};
-		cancel = Button(falsestr);
-		cancel.x = CANVAS_W/2;
-		cancel.y = POP_Y+POP_H - BTN_H - BTN_PAD;
-		cancel.h = BTN_H;
-		cancel.onMouse = [&ret,&running,&cancel](MouseEvent e)
+		cancel = make_shared<Button>(falsestr);
+		cancel->x = CANVAS_W/2;
+		cancel->y = POP_Y+POP_H - BTN_H - BTN_PAD;
+		cancel->h = BTN_H;
+		cancel->onMouse = [&ret,&running,&cancel](MouseEvent e)
 			{
 				switch(e)
 				{
 					case MOUSE_LCLICK:
 						ret = false;
 						running = false;
-						cancel.flags |= FL_SELECTED;
+						cancel->flags |= FL_SELECTED;
 						return MRET_TAKEFOCUS;
 				}
-				return cancel.handle_ev(e);
+				return cancel->handle_ev(e);
 			};
 		
 	}
-	popup.push_back(&bg);
-	popup.push_back(&win);
-	popup.push_back(&titlebar);
-	for(Label& lbl : lbls)
-		popup.push_back(&lbl);
-	popup.push_back(&ok);
-	popup.push_back(&cancel);
+	popup.push_back(bg);
+	popup.push_back(win);
+	popup.push_back(titlebar);
+	for(shared_ptr<Label>& lbl : lbls)
+		popup.push_back(lbl);
+	popup.push_back(ok);
+	popup.push_back(cancel);
 	
 	on_resize();
 	popup.run_proc = [&running](){return running;};

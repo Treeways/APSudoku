@@ -29,7 +29,6 @@ struct FontDef : public tuple<i16,bool,Bold> // A reference to a font
 };
 enum Font
 {
-	FONT_BUTTON,
 	FONT_ANSWER,
 	FONT_MARKING5,
 	FONT_MARKING6,

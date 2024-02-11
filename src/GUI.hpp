@@ -25,6 +25,13 @@ extern ALLEGRO_COLOR
 	, C_BUTTON_HOVBG
 	, C_BUTTON_BORDER
 	, C_BUTTON_DISTXT
+	, C_RAD_BG
+	, C_RAD_HOVBG
+	, C_RAD_FG
+	, C_RAD_DIS_BG
+	, C_RAD_DIS_FG
+	, C_RAD_BORDER
+	, C_RAD_TXT
 	, C_HIGHLIGHT
 	, C_HIGHLIGHT2
 	;
@@ -32,6 +39,7 @@ extern double render_xscale, render_yscale;
 extern int render_resx, render_resy;
 
 struct InputObject;
+struct GUIObject;
 struct InputState : public ALLEGRO_MOUSE_STATE
 {
 	int oldstate = 0;
@@ -50,8 +58,9 @@ struct InputState : public ALLEGRO_MOUSE_STATE
 };
 extern InputState* cur_input;
 
-struct DrawContainer : public vector<DrawnObject*>
+struct DrawContainer : public vector<shared_ptr<GUIObject>>
 {
+	GUIObject const* draw_parent = nullptr;
 	bool redraw = true;
 	std::function<bool()> run_proc;
 	virtual void run();
@@ -77,6 +86,20 @@ struct Dialog : public DrawContainer
 
 void clear_a5_bmp(ALLEGRO_COLOR col, ALLEGRO_BITMAP* bmp = nullptr);
 
+void update_scale();
+void scale_min(u16& v);
+void scale_max(u16& v);
+void scale_x(u16& x);
+void scale_y(u16& y);
+void scale_pos(u16& x, u16& y);
+void scale_pos(u16& x, u16& y, u16& w, u16& h);
+void unscale_min(u16& v);
+void unscale_max(u16& v);
+void unscale_x(u16& x);
+void unscale_y(u16& y);
+void unscale_pos(u16& x, u16& y);
+void unscale_pos(u16& x, u16& y, u16& w, u16& h);
+
 enum MouseEvent
 {
 	MOUSE_HOVER_ENTER,
@@ -98,37 +121,50 @@ enum MouseEvent
 #define MRET_OK         (u32(0x00))
 #define MRET_TAKEFOCUS  (u32(0x01))
 
-struct DrawnObject
+#define FL_SELECTED 0b00000001
+#define FL_DISABLED 0b00000010
+#define FL_HOVERED  0b00000100
+
+struct DrawWrapper;
+struct GUIObject
 {
-	u16 x, y;
+	u8 flags = 0;
 	std::function<void()> onResizeDisplay;
+	
+	GUIObject const* draw_parent = nullptr;
 	
 	void on_disp_resize();
 	virtual void draw() const {};
 	virtual bool mouse() {return false;}
-	virtual u16 xpos() const {return x;}
-	virtual u16 ypos() const {return y;}
+	virtual u16 xpos() const {return 0;}
+	virtual u16 ypos() const {return 0;}
+	virtual void xpos(u16 v) {}
+	virtual void ypos(u16 v) {}
 	virtual u16 width() const {return 0;}
 	virtual u16 height() const {return 0;}
+	virtual bool disabled() const;
 	virtual void key_event(ALLEGRO_EVENT const& ev) {}
-	DrawnObject() = default;
-	DrawnObject(u16 x, u16 y) : x(x), y(y) {}
+	GUIObject() = default;
 };
 
-struct InputObject : public DrawnObject
+struct InputObject : public GUIObject
 {
-	u16 w, h;
+	u16 x, y, w, h;
 	u8 mouseflags;
 	std::function<u32(MouseEvent)> onMouse;
 	virtual bool mouse() override;
+	virtual u16 xpos() const override {return x;}
+	virtual u16 ypos() const override {return y;}
+	virtual void xpos(u16 v) override {x = v + (x-xpos());}
+	virtual void ypos(u16 v) override {y = v + (y-ypos());}
 	virtual u16 width() const override {return w;}
 	virtual u16 height() const override {return h;}
 	void unhover();
 	InputObject() = default;
 	InputObject(u16 x, u16 y)
-		: DrawnObject(x, y), w(0), h(0), mouseflags(0), onMouse() {}
+		: x(x), y(y), w(0), h(0), mouseflags(0), onMouse() {}
 	InputObject(u16 x, u16 y, u16 w, u16 h)
-		: DrawnObject(x, y), w(w), h(h), mouseflags(0), onMouse() {}
+		: x(x), y(y), w(w), h(h), mouseflags(0), onMouse() {}
 private:
 	void process(u32 retcode);
 };
@@ -136,12 +172,12 @@ private:
 struct DrawWrapper : public InputObject
 {
 	DrawContainer cont;
-	virtual void draw() const override {cont.draw();};
-	virtual bool mouse() override {return cont.mouse();}
+	virtual void draw() const override;
+	virtual bool mouse() override;
 	virtual u16 width() const override = 0;
 	virtual u16 height() const override = 0;
 	
-	virtual void add(DrawnObject* obj) {cont.emplace_back(obj);}
+	virtual void add(shared_ptr<GUIObject> obj) {cont.emplace_back(obj);}
 	DrawWrapper() = default;
 	DrawWrapper(u16 X, u16 Y) : InputObject(X,Y) {}
 };
@@ -153,7 +189,7 @@ struct Column : public DrawWrapper
 	void realign(size_t start = 0);
 	virtual u16 width() const override;
 	virtual u16 height() const override;
-	virtual void add(DrawnObject* obj) override;
+	virtual void add(shared_ptr<GUIObject> obj) override;
 	Column() : padding(4), spacing(2), align(ALLEGRO_ALIGN_CENTRE) {};
 	Column(u16 X, u16 Y, u16 padding = 4,
 		u16 spacing = 2, i8 align = ALLEGRO_ALIGN_CENTRE);
@@ -165,37 +201,89 @@ struct Row : public DrawWrapper
 	void realign(size_t start = 0);
 	virtual u16 width() const override;
 	virtual u16 height() const override;
-	virtual void add(DrawnObject* obj) override;
+	virtual void add(shared_ptr<GUIObject> obj) override;
 	Row() : padding(4), spacing(2), align(ALLEGRO_ALIGN_CENTRE) {};
 	Row(u16 X, u16 Y, u16 padding = 4,
 		u16 spacing = 2, i8 align = ALLEGRO_ALIGN_CENTRE);
 };
 
-void update_scale();
-void scale_x(u16& x);
-void scale_y(u16& y);
-void scale_pos(u16& x, u16& y);
-void scale_pos(u16& x, u16& y, u16& w, u16& h);
-void unscale_x(u16& x);
-void unscale_y(u16& y);
-void unscale_pos(u16& x, u16& y);
-void unscale_pos(u16& x, u16& y, u16& w, u16& h);
+struct RadioSet;
+struct RadioButton : public InputObject
+{
+	u16 radius;
+	string text;
+	FontDef font;
+	RadioSet* parent;
+	static const u16 pad = 4;
+	
+	virtual void draw() const override;
+	virtual bool mouse() override;
+	virtual u16 xpos() const override;
+	virtual u16 ypos() const override;
+	virtual u16 width() const override;
+	virtual u16 height() const override;
+	virtual bool disabled() const override;
+	RadioButton() : text(), font(FontDef(-20, false, BOLD_NONE)),
+		radius(4), parent(nullptr)
+	{}
+	RadioButton(string const& txt, FontDef fnt, u16 rad = 4)
+		: radius(rad), text(txt), font(fnt), parent(nullptr)
+	{}
+	RadioButton(u16 X, u16 Y, string const& txt, FontDef fnt, u16 rad = 4)
+		: InputObject(X,Y), radius(rad), text(txt), font(fnt), parent(nullptr)
+	{}
+	
+	u32 handle_ev(MouseEvent ev);
+};
+struct RadioSet : public Column
+{
+	RadioSet(vector<string> opts, FontDef fnt, u16 rad = 4)
+		: Column()
+	{
+		init(opts, fnt, rad);
+		align = ALLEGRO_ALIGN_LEFT;
+		realign();
+	}
+	RadioSet(u16 X, u16 Y, vector<string> opts, FontDef fnt,
+		u16 rad = 4, u16 padding = 4, u16 spacing = 2)
+		: Column(X,Y,padding,spacing)
+	{
+		init(opts, fnt, rad);
+		align = ALLEGRO_ALIGN_LEFT;
+		realign();
+	}
+	optional<u16> get_sel();
+	void select(u16 ind);
+private:
+	void init(vector<string>& opts, FontDef fnt, u16 rad);
+	friend struct RadioButton;
+	void deselect();
+};
+struct CheckBox : public RadioButton
+{
+	virtual void draw() const override;
+	CheckBox() : RadioButton() {}
+	CheckBox(string const& txt, FontDef fnt, u16 rad = 4)
+		: RadioButton(txt,fnt,rad)
+	{}
+	CheckBox(u16 X, u16 Y, string const& txt, FontDef fnt, u16 rad = 4)
+		: RadioButton(X,Y,txt,fnt,rad)
+	{}
+};
 
-#define FL_SELECTED 0b00000001
-#define FL_DISABLED 0b00000010
-#define FL_HOVERED  0b00000100
 struct Button : public InputObject
 {
 	string text;
-	u8 flags;
+	FontDef font;
 	
 	void draw() const override;
 	bool mouse() override;
 	
 	Button();
 	Button(string const& txt);
-	Button(string const& txt, u16 X, u16 Y);
-	Button(string const& txt, u16 X, u16 Y, u16 W, u16 H);
+	Button(string const& txt, FontDef fnt);
+	Button(string const& txt, FontDef fnt, u16 X, u16 Y);
+	Button(string const& txt, FontDef fnt, u16 X, u16 Y, u16 W, u16 H);
 	
 	u32 handle_ev(MouseEvent ev);
 };

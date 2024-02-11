@@ -10,6 +10,7 @@
 #include <string>
 #include <optional>
 #include <functional>
+#include <memory>
 #include <tuple>
 #include <stdint.h>
 typedef int8_t i8;
@@ -29,9 +30,11 @@ using std::vector;
 using std::to_string;
 using std::optional;
 using std::nullopt;
+using std::shared_ptr;
+using std::make_shared;
 
 struct FontDef;
-struct DrawnObject;
+struct GUIObject;
 struct DrawContainer;
 extern vector<DrawContainer*> popups;
 void dlg_draw();

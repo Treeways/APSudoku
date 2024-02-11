@@ -35,12 +35,14 @@ EntryMode get_mode()
 
 #define GRID_X (32)
 #define GRID_Y (32)
-Sudoku::Grid grid { GRID_X, GRID_Y };
+shared_ptr<Sudoku::Grid> grid;
 #define BUTTON_X (CANVAS_W-32-96)
 #define BUTTON_Y (32)
-Button swap_btns[NUM_SCRS];
+shared_ptr<Button> swap_btns[NUM_SCRS];
+shared_ptr<RadioSet> difficulty;
+
+
 Screen curscr = SCR_SUDOKU;
-Column sb_column;
 
 map<Screen,DrawContainer> gui_objects;
 vector<DrawContainer*> popups;
@@ -59,23 +61,23 @@ void swap_screen(Screen scr)
 	for(auto q = 0; q < NUM_SCRS; ++q)
 	{
 		if(q == scr)
-			swap_btns[q].flags |= FL_SELECTED;
-		else swap_btns[q].flags &= ~FL_SELECTED;
+			swap_btns[q]->flags |= FL_SELECTED;
+		else swap_btns[q]->flags &= ~FL_SELECTED;
 	}
 }
 
 void build_gui()
 {
 	using namespace Sudoku;
-	{ //BG, to allow 'clicking off'
-		static ShapeRect bg(0,0,CANVAS_W,CANVAS_H,C_BG);
-		bg.onMouse = mouse_killfocus;
+	{ // BG, to allow 'clicking off'
+		shared_ptr<ShapeRect> bg = make_shared<ShapeRect>(0,0,CANVAS_W,CANVAS_H,C_BG);
+		bg->onMouse = mouse_killfocus;
 		for(int q = 0; q < NUM_SCRS; ++q)
-			gui_objects[static_cast<Screen>(q)].push_back(&bg);
+			gui_objects[static_cast<Screen>(q)].push_back(bg);
 	}
-	{ //Swap buttons
+	{ // Swap buttons
 		#define ON_SWAP_BTN(b, scr) \
-		b.onMouse = [](MouseEvent e) \
+		b->onMouse = [](MouseEvent e) \
 			{ \
 				switch(e) \
 				{ \
@@ -83,25 +85,26 @@ void build_gui()
 						if(curscr != scr) swap_screen(scr); \
 						return MRET_TAKEFOCUS; \
 				} \
-				return b.handle_ev(e); \
+				return b->handle_ev(e); \
 			}
-		swap_btns[0] = Button("Sudoku");
-		swap_btns[1] = Button("Archipelago");
-		swap_btns[2] = Button("Settings");
+		FontDef fd(-22, false, BOLD_NONE);
+		swap_btns[0] = make_shared<Button>("Sudoku", fd);
+		swap_btns[1] = make_shared<Button>("Archipelago", fd);
+		swap_btns[2] = make_shared<Button>("Settings", fd);
 		ON_SWAP_BTN(swap_btns[0], SCR_SUDOKU);
 		ON_SWAP_BTN(swap_btns[1], SCR_CONNECT);
 		ON_SWAP_BTN(swap_btns[2], SCR_SETTINGS);
-		swap_btns[curscr].flags |= FL_SELECTED;
-		sb_column = Column(BUTTON_X, BUTTON_Y);
-		for(Button& b : swap_btns)
-			sb_column.add(&b);
+		swap_btns[curscr]->flags |= FL_SELECTED;
+		shared_ptr<Column> sb_column = make_shared<Column>(BUTTON_X, BUTTON_Y);
+		for(shared_ptr<Button> const& b : swap_btns)
+			sb_column->add(b);
 		
 		for(int q = 0; q < NUM_SCRS; ++q)
-			gui_objects[static_cast<Screen>(q)].push_back(&sb_column);
+			gui_objects[static_cast<Screen>(q)].push_back(sb_column);
 	}
 	{ // Grid
-		grid = Grid(GRID_X, GRID_Y);
-		grid.onMouse = [](MouseEvent e)
+		grid = make_shared<Grid>(GRID_X, GRID_Y);
+		grid->onMouse = [](MouseEvent e)
 			{
 				u32 ret = MRET_OK;
 				switch(e)
@@ -109,22 +112,29 @@ void build_gui()
 					case MOUSE_LCLICK:
 						ret |= MRET_TAKEFOCUS;
 						if(!cur_input->shift())
-							grid.deselect();
+							grid->deselect();
 					[[fallthrough]];
 					case MOUSE_LDOWN:
-						if((ret & MRET_TAKEFOCUS) || cur_input->focused == &grid)
+						if((ret & MRET_TAKEFOCUS) || cur_input->focused == grid.get())
 						{
-							if(Cell* c = grid.get_hov())
-								grid.select(c);
+							if(Cell* c = grid->get_hov())
+								grid->select(c);
 						}
 						break;
 					case MOUSE_LOSTFOCUS:
-						grid.deselect();
+						grid->deselect();
 						break;
 				}
 				return ret;
 			};
-		gui_objects[SCR_SUDOKU].push_back(&grid);
+		gui_objects[SCR_SUDOKU].push_back(grid);
+	}
+	const int R_GRID_X = GRID_X+(CELL_SZ*9)+2;
+	{ // Test
+		difficulty = make_shared<RadioSet>(R_GRID_X+8,GRID_Y,
+			vector<string>({"Easy","Medium","Hard"}), FontDef(-20, false, BOLD_NONE), 4, 4, 2);
+		difficulty->select(0);
+		gui_objects[SCR_SUDOKU].push_back(difficulty);
 	}
 }
 
@@ -165,16 +175,16 @@ void init_grid()
 	//!TODO this is just a test grid inserted on launch
 	for(int q = 0; q < 9; ++q)
 	{
-		Sudoku::Cell* c = grid.get(0,q);
+		Sudoku::Cell* c = grid->get(0,q);
 		c->val = q+1;
 		if(q%2)
 			c->flags |= CFL_GIVEN;
 		
-		c = grid.get(1,q);
+		c = grid->get(1,q);
 		for(int p = 0; p <= q; ++p)
 			c->center_marks[p] = true;
 		
-		c = grid.get(2,q);
+		c = grid->get(2,q);
 		for(int p = 0; p <= q; ++p)
 			c->corner_marks[p] = true;
 	}
@@ -226,8 +236,6 @@ int main(int argc, char **argv)
 	std::filesystem::current_path(wdir);
 	log("Running in dir: \"" + wdir + "\"");
 	//
-	swap_btns[0].flags |= FL_SELECTED;
-	//
 	setup_allegro();
 	log("Allegro initialized successfully");
 	log("Building GUI...");
@@ -258,7 +266,6 @@ int main(int argc, char **argv)
 
 void init_fonts()
 {
-	fonts[FONT_BUTTON] = FontDef(-20, false, BOLD_NONE);
 	fonts[FONT_ANSWER] = FontDef(-32, false, BOLD_NONE);
 	fonts[FONT_MARKING5] = FontDef(-12, true, BOLD_NONE);
 	fonts[FONT_MARKING6] = FontDef(-11, true, BOLD_NONE);
