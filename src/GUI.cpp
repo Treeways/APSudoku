@@ -264,12 +264,17 @@ void GUIObject::on_disp_resize()
 {
 	if(onResizeDisplay)
 		onResizeDisplay();
+	realign();
 }
 bool GUIObject::disabled() const
 {
 	return (flags&FL_DISABLED)
 		|| (dis_proc && dis_proc())
 		|| (draw_parent && draw_parent->disabled());
+}
+bool GUIObject::selected() const
+{
+	return sel_proc ? sel_proc() : (flags&FL_SELECTED);
 }
 
 void InputObject::unhover()
@@ -480,7 +485,7 @@ Row::Row(u16 X, u16 Y, u16 padding, u16 spacing, i8 align)
 void RadioButton::draw() const
 {
 	bool dis = disabled();
-	bool sel = (flags&FL_SELECTED);
+	bool sel = selected();
 	bool hov = !dis && (flags&FL_HOVERED);
 	u16 CX = x, CY = y;
 	u16 X = x + radius + pad, Y = CY;
@@ -504,14 +509,7 @@ u32 RadioButton::handle_ev(MouseEvent e)
 	switch(e)
 	{
 		case MOUSE_LCLICK:
-			if(flags&FL_SELECTED)
-				break;
-			if(parent)
-			{
-				parent->deselect();
-				flags |= FL_SELECTED;
-			}
-			else flags ^= FL_SELECTED;
+			flags ^= FL_SELECTED;
 			return MRET_TAKEFOCUS;
 		case MOUSE_HOVER_ENTER:
 			flags |= FL_HOVERED;
@@ -546,57 +544,50 @@ u16 RadioButton::height() const
 	ALLEGRO_FONT* f = font.get_base();
 	return std::max(al_get_font_line_height(f), radius*2);
 }
-bool RadioButton::disabled() const
-{
-	return InputObject::disabled() || (parent && parent->disabled());
-}
 
 // RadioSet
 void RadioSet::init(vector<string>& opts, FontDef fnt, u16 rad)
 {
 	cont.clear();
-	size_t ind = 0;
+	u16 ind = 0;
 	for(string const& str : opts)
 	{
 		shared_ptr<RadioButton> rb = make_shared<RadioButton>(str, fnt, rad);
 		add(rb);
-		rb->parent = this;
+		rb->sel_proc = [this,ind]()
+			{
+				return this->get_sel() == ind;
+			};
+		rb->onMouse = [this,ind](InputObject& ref,MouseEvent e)
+			{
+				if(e == MOUSE_LCLICK)
+				{
+					this->select(ind);
+					return MRET_TAKEFOCUS;
+				}
+				return ref.handle_ev(e);
+			};
 		++ind;
 	}
 }
-void RadioSet::deselect()
+optional<u16> RadioSet::get_sel() const
 {
-	for(shared_ptr<GUIObject>& obj : cont)
-		obj->flags &= ~FL_SELECTED;
+	if(get_sel_proc)
+		return get_sel_proc();
+	return sel_ind;
 }
-optional<u16> RadioSet::get_sel()
+void RadioSet::select(optional<u16> targ)
 {
-	u16 ind = 0;
-	for(shared_ptr<GUIObject>& rb : cont)
-	{
-		if(rb->flags & FL_SELECTED)
-			return ind;
-		++ind;
-	}
-	return nullopt;
-}
-void RadioSet::select(u16 targ)
-{
-	u16 ind = 0;
-	for(shared_ptr<GUIObject>& rb : cont)
-	{
-		if(ind == targ)
-			rb->flags |= FL_SELECTED;
-		else rb->flags &= ~FL_SELECTED;
-		++ind;
-	}
+	if(set_sel_proc)
+		return set_sel_proc(targ);
+	sel_ind = targ;
 }
 
 // CheckBox
 void CheckBox::draw() const
 {
 	bool dis = disabled();
-	bool sel = (flags&FL_SELECTED);
+	bool sel = selected();
 	bool hov = !dis && (flags&FL_HOVERED);
 	u16 CX = x, CY = y;
 	u16 X = x + radius + pad, Y = CY;
@@ -630,7 +621,7 @@ void Button::draw() const
 	ALLEGRO_COLOR const* fg = &C_BUTTON_FG;
 	ALLEGRO_COLOR const* bg = &C_BUTTON_BG;
 	bool dis = disabled();
-	bool sel = !dis && (flags&FL_SELECTED);
+	bool sel = !dis && selected();
 	bool hov = !dis && (flags&FL_HOVERED);
 	if(sel)
 		std::swap(fg,bg);
@@ -747,12 +738,12 @@ u16 Label::xpos() const
 }
 u16 Label::width() const
 {
-	ALLEGRO_FONT* f = font.get();
+	ALLEGRO_FONT* f = font.get_base();
 	return f ? al_get_text_width(f, text.c_str()) : 0;
 }
 u16 Label::height() const
 {
-	ALLEGRO_FONT* f = font.get();
+	ALLEGRO_FONT* f = font.get_base();
 	return f ? al_get_font_line_height(f) : 0;
 }
 Label::Label()
@@ -760,6 +751,9 @@ Label::Label()
 {}
 Label::Label(string const& txt)
 	: InputObject(), text(txt), align(ALLEGRO_ALIGN_CENTRE)
+{}
+Label::Label(string const& txt, FontDef fd, i8 al)
+	: InputObject(), text(txt), align(al), font(fd)
 {}
 Label::Label(string const& txt, u16 X, u16 Y, FontDef fd, i8 al)
 	: InputObject(X,Y), text(txt), align(al), font(fd)

@@ -130,7 +130,11 @@ struct GUIObject
 {
 	u8 flags;
 	std::function<void()> onResizeDisplay;
+	//Obj is disabled if this returns true, OR flags&FL_DISABLED
 	std::function<bool()> dis_proc;
+	//If set, obj is selected iff returns true,
+	//ELSE obj is selected if flags&FL_SELECT
+	std::function<bool()> sel_proc;
 	
 	GUIObject const* draw_parent;
 	
@@ -144,10 +148,11 @@ struct GUIObject
 	virtual u16 width() const {return 0;}
 	virtual u16 height() const {return 0;}
 	virtual bool disabled() const;
+	virtual bool selected() const;
 	virtual void key_event(ALLEGRO_EVENT const& ev) {}
 	virtual void realign(size_t start = 0) {}
 	GUIObject()
-		: flags(0), onResizeDisplay(), dis_proc(), draw_parent(nullptr)
+		: flags(0), onResizeDisplay(), dis_proc(), sel_proc(), draw_parent(nullptr)
 	{}
 };
 
@@ -213,13 +218,11 @@ struct Row : public DrawWrapper
 		u16 spacing = 2, i8 align = ALLEGRO_ALIGN_CENTRE);
 };
 
-struct RadioSet;
 struct RadioButton : public InputObject
 {
 	u16 radius;
 	string text;
 	FontDef font;
-	RadioSet* parent;
 	static const u16 pad = 4;
 	
 	virtual void draw() const override;
@@ -228,15 +231,14 @@ struct RadioButton : public InputObject
 	virtual u16 ypos() const override;
 	virtual u16 width() const override;
 	virtual u16 height() const override;
-	virtual bool disabled() const override;
 	RadioButton() : text(), font(FontDef(-20, false, BOLD_NONE)),
-		radius(4), parent(nullptr)
+		radius(4)
 	{}
 	RadioButton(string const& txt, FontDef fnt, u16 rad = 4)
-		: radius(rad), text(txt), font(fnt), parent(nullptr)
+		: radius(rad), text(txt), font(fnt)
 	{}
 	RadioButton(u16 X, u16 Y, string const& txt, FontDef fnt, u16 rad = 4)
-		: InputObject(X,Y), radius(rad), text(txt), font(fnt), parent(nullptr)
+		: InputObject(X,Y), radius(rad), text(txt), font(fnt)
 	{}
 	
 	u32 handle_ev(MouseEvent ev) override;
@@ -244,26 +246,27 @@ struct RadioButton : public InputObject
 struct RadioSet : public Column
 {
 	RadioSet(vector<string> opts, FontDef fnt, u16 rad = 4)
-		: Column()
+		: Column(0,0,0,2,ALLEGRO_ALIGN_LEFT)
 	{
 		init(opts, fnt, rad);
-		align = ALLEGRO_ALIGN_LEFT;
 		realign();
 	}
-	RadioSet(u16 X, u16 Y, vector<string> opts, FontDef fnt,
-		u16 rad = 4, u16 padding = 4, u16 spacing = 2)
-		: Column(X,Y,padding,spacing)
+	RadioSet(std::function<optional<u8>()> getter,
+		std::function<void(optional<u8>)> setter,
+		vector<string> opts, FontDef fnt, u16 rad = 4)
+		: Column(0,0,0,2,ALLEGRO_ALIGN_LEFT),
+		get_sel_proc(getter), set_sel_proc(setter)
 	{
 		init(opts, fnt, rad);
-		align = ALLEGRO_ALIGN_LEFT;
 		realign();
 	}
-	optional<u16> get_sel();
-	void select(u16 ind);
+	optional<u16> get_sel() const;
+	void select(optional<u16> ind);
 private:
+	optional<u16> sel_ind;
+	std::function<optional<u8>()> get_sel_proc;
+	std::function<void(optional<u8>)> set_sel_proc;
 	void init(vector<string>& opts, FontDef fnt, u16 rad);
-	friend struct RadioButton;
-	void deselect();
 };
 struct CheckBox : public RadioButton
 {
@@ -324,6 +327,7 @@ struct Label : public InputObject
 	
 	Label();
 	Label(string const& txt);
+	Label(string const& txt, FontDef fd, i8 align = ALLEGRO_ALIGN_CENTRE);
 	Label(string const& txt, u16 X, u16 Y, FontDef fd, i8 align = ALLEGRO_ALIGN_CENTRE);
 };
 

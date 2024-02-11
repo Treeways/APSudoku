@@ -28,6 +28,7 @@ ALLEGRO_TIMER* timer;
 ALLEGRO_EVENT_QUEUE* events;
 ALLEGRO_EVENT_SOURCE event_source;
 
+Difficulty diff = DIFF_NORMAL;
 EntryMode mode = ENT_ANSWER;
 EntryMode get_mode()
 {
@@ -35,9 +36,11 @@ EntryMode get_mode()
 		return ENT_CORNER;
 	if(cur_input->ctrl_cmd())
 		return ENT_CENTER;
-	if(cur_input->alt())
-		return ENT_ANSWER;
 	return mode;
+}
+bool mode_mod()
+{
+	return cur_input->shift() || cur_input->ctrl_cmd();
 }
 
 #define GRID_X (32)
@@ -55,6 +58,11 @@ map<Screen,DrawContainer> gui_objects;
 vector<DrawContainer*> popups;
 bool settings_unsaved = false;
 
+bool grid_focused()
+{
+	return cur_input && cur_input->focused == grid.get();
+}
+
 void swap_screen(Screen scr)
 {
 	if(curscr == scr)
@@ -65,18 +73,13 @@ void swap_screen(Screen scr)
 			return;
 	}
 	curscr = scr;
-	for(auto q = 0; q < NUM_SCRS; ++q)
-	{
-		if(q == scr)
-			swap_btns[q]->flags |= FL_SELECTED;
-		else swap_btns[q]->flags &= ~FL_SELECTED;
-	}
 }
 
 void build_gui()
 {
 	using namespace Sudoku;
-	FontDef fd(-22, false, BOLD_NONE);
+	FontDef font_l(-22, false, BOLD_NONE);
+	FontDef font_s(-15,false,BOLD_NONE);
 	{ // BG, to allow 'clicking off'
 		shared_ptr<ShapeRect> bg = make_shared<ShapeRect>(0,0,CANVAS_W,CANVAS_H,C_BG);
 		bg->onMouse = mouse_killfocus;
@@ -85,6 +88,7 @@ void build_gui()
 	}
 	{ // Swap buttons
 		#define ON_SWAP_BTN(b, scr) \
+		b->sel_proc = [](){return curscr == scr;}; \
 		b->onMouse = [](InputObject& ref,MouseEvent e) \
 			{ \
 				switch(e) \
@@ -95,13 +99,12 @@ void build_gui()
 				} \
 				return ref.handle_ev(e); \
 			}
-		swap_btns[0] = make_shared<Button>("Sudoku", fd);
-		swap_btns[1] = make_shared<Button>("Archipelago", fd);
-		swap_btns[2] = make_shared<Button>("Settings", fd);
+		swap_btns[0] = make_shared<Button>("Sudoku", font_l);
+		swap_btns[1] = make_shared<Button>("Archipelago", font_l);
+		swap_btns[2] = make_shared<Button>("Settings", font_l);
 		ON_SWAP_BTN(swap_btns[0], SCR_SUDOKU);
 		ON_SWAP_BTN(swap_btns[1], SCR_CONNECT);
 		ON_SWAP_BTN(swap_btns[2], SCR_SETTINGS);
-		swap_btns[curscr]->flags |= FL_SELECTED;
 		shared_ptr<Column> sb_column = make_shared<Column>(BUTTON_X, BUTTON_Y);
 		for(shared_ptr<Button> const& b : swap_btns)
 			sb_column->add(b);
@@ -122,7 +125,7 @@ void build_gui()
 							grid->deselect();
 					[[fallthrough]];
 					case MOUSE_LDOWN:
-						if((ret & MRET_TAKEFOCUS) || cur_input->focused == grid.get())
+						if((ret & MRET_TAKEFOCUS) || grid_focused())
 						{
 							if(Cell* c = grid->get_hov())
 								grid->select(c);
@@ -136,28 +139,39 @@ void build_gui()
 			};
 		gui_objects[SCR_SUDOKU].push_back(grid);
 	}
-	const int R_GRID_X = GRID_X+(CELL_SZ*9)+2;
+	const int GRID_X2 = GRID_X+(CELL_SZ*9)+2;
+	const int GRID_Y2 = GRID_Y+(CELL_SZ*9)+2;
+	const int RGRID_X = GRID_X2 + 8;
 	{ // Difficulty / game buttons
-		shared_ptr<Column> diff_column = make_shared<Column>(R_GRID_X+8,GRID_Y);
-		diff_column->align = ALLEGRO_ALIGN_LEFT;
+		shared_ptr<Column> diff_column = make_shared<Column>(RGRID_X,GRID_Y,0,2,ALLEGRO_ALIGN_LEFT);
 		
-		difficulty = make_shared<RadioSet>(vector<string>({"Easy","Medium","Hard"}), FontDef(-20, false, BOLD_NONE));
-		difficulty->select(0);
+		shared_ptr<Label> diff_lbl = make_shared<Label>("Difficulty:", font_s, ALLEGRO_ALIGN_LEFT);
+		diff_column->add(diff_lbl);
+		
+		difficulty = make_shared<RadioSet>(
+			[](){return diff;},
+			[](optional<u8> v)
+			{
+				if(v)
+					diff = Difficulty(*v);
+			},
+			vector<string>({"Easy","Normal","Hard"}),
+			FontDef(-20, false, BOLD_NONE));
+		difficulty->select(1);
 		difficulty->dis_proc = []()
 			{
 				return grid->active();
 			};
 		diff_column->add(difficulty);
 		
-		shared_ptr<Button> start_btn = make_shared<Button>("Start", fd);
+		shared_ptr<Button> start_btn = make_shared<Button>("Start", font_l);
 		diff_column->add(start_btn);
 		start_btn->onMouse = [](InputObject& ref,MouseEvent e)
 			{
 				switch(e)
 				{
 					case MOUSE_LCLICK:
-						if(optional<u8> diff = difficulty->get_sel())
-							grid->generate(*diff);
+						grid->generate(diff);
 						break;
 				}
 				return ref.handle_ev(e);
@@ -167,7 +181,7 @@ void build_gui()
 				return grid->active();
 			};
 		
-		shared_ptr<Button> forfeit_btn = make_shared<Button>("Forfeit", fd);
+		shared_ptr<Button> forfeit_btn = make_shared<Button>("Forfeit", font_l);
 		diff_column->add(forfeit_btn);
 		forfeit_btn->onMouse = [](InputObject& ref,MouseEvent e)
 			{
@@ -185,7 +199,7 @@ void build_gui()
 				return !grid->active();
 			};
 		
-		shared_ptr<Button> check_btn = make_shared<Button>("Check", fd);
+		shared_ptr<Button> check_btn = make_shared<Button>("Check", font_l);
 		diff_column->add(check_btn);
 		check_btn->onMouse = [](InputObject& ref,MouseEvent e)
 			{
@@ -208,8 +222,35 @@ void build_gui()
 			{
 				return !grid->active();
 			};
-		
+		diff_column->ypos(GRID_Y2-diff_column->height());
+		diff_column->realign();
 		gui_objects[SCR_SUDOKU].push_back(diff_column);
+	}
+	{ // Entry mode toggle
+		shared_ptr<Column> entry_col = make_shared<Column>(RGRID_X,GRID_Y,0,2,ALLEGRO_ALIGN_LEFT);
+		
+		shared_ptr<Label> entry_lbl = make_shared<Label>("Entry Mode:", font_s, ALLEGRO_ALIGN_LEFT);
+		entry_col->add(entry_lbl);
+		
+		shared_ptr<RadioSet> entry_mode = make_shared<RadioSet>(
+			[]()
+			{
+				if(grid_focused())
+					return get_mode();
+				return mode;
+			},
+			[](optional<u8> v)
+			{
+				if(v)
+					mode = EntryMode(*v);
+			},
+			vector<string>({"Answer","Center","Corner"}),
+			FontDef(-20, false, BOLD_NONE));
+		entry_mode->select(ENT_ANSWER);
+		entry_mode->dis_proc = [](){return grid_focused() && mode_mod();};
+		entry_col->add(entry_mode);
+		
+		gui_objects[SCR_SUDOKU].push_back(entry_col);
 	}
 }
 

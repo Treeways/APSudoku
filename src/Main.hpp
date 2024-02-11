@@ -63,6 +63,16 @@ enum EntryMode
 };
 extern EntryMode mode;
 EntryMode get_mode();
+bool mode_mod();
+
+enum Difficulty
+{
+	DIFF_EASY,
+	DIFF_NORMAL,
+	DIFF_HARD,
+	NUM_DIFF
+};
+extern Difficulty diff;
 
 #define CANVAS_W 640
 #define CANVAS_H 352
@@ -83,4 +93,7 @@ enum direction
 void log(string const& msg);
 void error(string const& msg);
 void fail(string const& msg);
+
+
+bool grid_focused();
 

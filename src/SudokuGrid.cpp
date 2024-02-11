@@ -452,9 +452,14 @@ namespace Sudoku
 							select(&cells[ind]);
 						}
 						break;
-					case ALLEGRO_KEY_TAB:
+					case ALLEGRO_KEY_PAD_MINUS:
+						//!TODO remove cheat
 						for(Cell& c : cells)
 							c.val = c.solution;
+						break;
+					case ALLEGRO_KEY_TAB:
+						if(!mode_mod())
+							mode = EntryMode((mode+1)%NUM_ENT);
 						break;
 					case ALLEGRO_KEY_DELETE:
 					case ALLEGRO_KEY_BACKSPACE:
@@ -521,7 +526,7 @@ namespace Sudoku
 		u8 const* s2;
 		switch(diff)
 		{
-			case 0:
+			case DIFF_EASY:
 			{
 				static u8 sol[] =
 				{
@@ -554,7 +559,7 @@ namespace Sudoku
 				s1 = sol; s2 = start;
 				break;
 			}
-			case 1:
+			case DIFF_NORMAL:
 			{
 				static u8 sol[] =
 				{
@@ -587,7 +592,7 @@ namespace Sudoku
 				s1 = sol; s2 = start;
 				break;
 			}
-			case 2:
+			case DIFF_HARD:
 			{
 				static u8 sol[] =
 				{
