@@ -55,7 +55,7 @@ struct DrawContainer : public vector<DrawnObject*>
 	bool redraw = true;
 	std::function<bool()> run_proc;
 	virtual void run();
-	virtual void draw();
+	virtual void draw() const;
 	virtual bool mouse();
 	virtual void on_disp_resize();
 	virtual void key_event(ALLEGRO_EVENT const& ev);
@@ -67,7 +67,7 @@ struct Dialog : public DrawContainer
 {
 	InputState state;
 	virtual void run() override;
-	virtual void draw() override;
+	virtual void draw() const override;
 	virtual bool mouse() override;
 	virtual void on_disp_resize() override;
 	virtual void key_event(ALLEGRO_EVENT const& ev) override;
@@ -131,6 +131,44 @@ struct InputObject : public DrawnObject
 		: DrawnObject(x, y), w(w), h(h), mouseflags(0), onMouse() {}
 private:
 	void process(u32 retcode);
+};
+
+struct DrawWrapper : public InputObject
+{
+	DrawContainer cont;
+	virtual void draw() const override {cont.draw();};
+	virtual bool mouse() override {return cont.mouse();}
+	virtual u16 width() const override = 0;
+	virtual u16 height() const override = 0;
+	
+	virtual void add(DrawnObject* obj) {cont.emplace_back(obj);}
+	DrawWrapper() = default;
+	DrawWrapper(u16 X, u16 Y) : InputObject(X,Y) {}
+};
+
+struct Column : public DrawWrapper
+{
+	u16 padding, spacing;
+	i8 align;
+	void realign(size_t start = 0);
+	virtual u16 width() const override;
+	virtual u16 height() const override;
+	virtual void add(DrawnObject* obj) override;
+	Column() : padding(4), spacing(2), align(ALLEGRO_ALIGN_CENTRE) {};
+	Column(u16 X, u16 Y, u16 padding = 4,
+		u16 spacing = 2, i8 align = ALLEGRO_ALIGN_CENTRE);
+};
+struct Row : public DrawWrapper
+{
+	u16 padding, spacing;
+	i8 align;
+	void realign(size_t start = 0);
+	virtual u16 width() const override;
+	virtual u16 height() const override;
+	virtual void add(DrawnObject* obj) override;
+	Row() : padding(4), spacing(2), align(ALLEGRO_ALIGN_CENTRE) {};
+	Row(u16 X, u16 Y, u16 padding = 4,
+		u16 spacing = 2, i8 align = ALLEGRO_ALIGN_CENTRE);
 };
 
 void update_scale();

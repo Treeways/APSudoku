@@ -51,7 +51,7 @@ void DrawContainer::run()
 	
 	cur_input->oldstate = cur_input->buttons;
 }
-void DrawContainer::draw()
+void DrawContainer::draw() const
 {
 	for(DrawnObject const* obj : *this)
 		obj->draw();
@@ -96,10 +96,10 @@ void Dialog::run()
 	DrawContainer::run();
 	cur_input = old;
 }
-void Dialog::draw()
+void Dialog::draw() const
 {
 	InputState* old = cur_input;
-	cur_input = &state;
+	cur_input = &const_cast<Dialog*>(this)->state;
 	DrawContainer::draw();
 	cur_input = old;
 }
@@ -297,6 +297,117 @@ bool InputObject::mouse()
 		return false;
 	}
 }
+
+// Column
+u16 Column::width() const
+{
+	return w+2*padding;
+}
+u16 Column::height() const
+{
+	u16 H = 2*padding;
+	for(DrawnObject const* obj : cont)
+		H += obj->height() + spacing;
+	return H;
+}
+void Column::realign(size_t start)
+{
+	u16 H = padding;
+	for(size_t q = 0; q < start; ++q)
+	{
+		DrawnObject* obj = cont[q];
+		H += obj->height() + spacing;
+	}
+	for(size_t q = start; q < cont.size(); ++q)
+	{
+		DrawnObject* obj = cont[q];
+		switch(align)
+		{
+			default:
+				obj->x = x+padding;
+				break;
+			case ALLEGRO_ALIGN_CENTRE:
+				obj->x = x+padding+(w-obj->width())/2;
+				break;
+			case ALLEGRO_ALIGN_RIGHT:
+				obj->x = x+padding+(w-obj->width());
+				break;
+		}
+		obj->y = y + H;
+		H += obj->height() + spacing;
+	}
+	h = H+padding;
+}
+void Column::add(DrawnObject* obj)
+{
+	auto objw = obj->width();
+	if(objw > w)
+	{
+		w = objw;
+		realign();
+	}
+	DrawWrapper::add(obj);
+	realign(cont.size()-1);
+}
+Column::Column(u16 X, u16 Y, u16 padding, u16 spacing, i8 align)
+	: DrawWrapper(X, Y), padding(padding), spacing(spacing),
+	align(align)
+{}
+// Row
+u16 Row::width() const
+{
+	u16 W = 2*padding;
+	for(DrawnObject const* obj : cont)
+		W += obj->width() + spacing;
+	return W;
+}
+u16 Row::height() const
+{
+	return h+2*padding;
+}
+void Row::realign(size_t start)
+{
+	u16 W = padding;
+	for(size_t q = 0; q < start; ++q)
+	{
+		DrawnObject* obj = cont[q];
+		W += obj->width() + spacing;
+	}
+	for(size_t q = start; q < cont.size(); ++q)
+	{
+		DrawnObject* obj = cont[q];
+		switch(align)
+		{
+			default:
+				obj->y = y+padding;
+				break;
+			case ALLEGRO_ALIGN_CENTRE:
+				obj->y = y+padding+(h-obj->height())/2;
+				break;
+			case ALLEGRO_ALIGN_RIGHT:
+				obj->y = y+padding+(h-obj->height());
+				break;
+		}
+		obj->x = x + W;
+		W += obj->width() + spacing;
+	}
+	w = W+padding;
+}
+void Row::add(DrawnObject* obj)
+{
+	auto objh = obj->height();
+	if(objh > h)
+	{
+		h = objh;
+		realign();
+	}
+	DrawWrapper::add(obj);
+	realign(cont.size()-1);
+}
+Row::Row(u16 X, u16 Y, u16 padding, u16 spacing, i8 align)
+	: DrawWrapper(X, Y), padding(padding), spacing(spacing),
+	align(align)
+{}
 
 // Button
 void Button::draw() const

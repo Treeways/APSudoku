@@ -40,6 +40,7 @@ Sudoku::Grid grid { GRID_X, GRID_Y };
 #define BUTTON_Y (32)
 Button swap_btns[NUM_SCRS];
 Screen curscr = SCR_SUDOKU;
+Column sb_column;
 
 map<Screen,DrawContainer> gui_objects;
 vector<DrawContainer*> popups;
@@ -84,16 +85,19 @@ void build_gui()
 				} \
 				return b.handle_ev(e); \
 			}
-		swap_btns[0] = Button("Sudoku", BUTTON_X, BUTTON_Y);
-		swap_btns[1] = Button("Archipelago", BUTTON_X, BUTTON_Y+32);
-		swap_btns[2] = Button("Settings", BUTTON_X, BUTTON_Y+64);
+		swap_btns[0] = Button("Sudoku");
+		swap_btns[1] = Button("Archipelago");
+		swap_btns[2] = Button("Settings");
 		ON_SWAP_BTN(swap_btns[0], SCR_SUDOKU);
 		ON_SWAP_BTN(swap_btns[1], SCR_CONNECT);
 		ON_SWAP_BTN(swap_btns[2], SCR_SETTINGS);
 		swap_btns[curscr].flags |= FL_SELECTED;
+		sb_column = Column(BUTTON_X, BUTTON_Y);
+		for(Button& b : swap_btns)
+			sb_column.add(&b);
+		
 		for(int q = 0; q < NUM_SCRS; ++q)
-			for(Button& b : swap_btns)
-				gui_objects[static_cast<Screen>(q)].push_back(&b);
+			gui_objects[static_cast<Screen>(q)].push_back(&sb_column);
 	}
 	{ // Grid
 		grid = Grid(GRID_X, GRID_Y);
