@@ -89,6 +89,8 @@ add_executable(APSudoku
 	src/Main.cpp
 	src/GUI.cpp
 	src/Font.cpp
+	src/Config.cpp
+	src/Util.cpp
 	src/SudokuGrid.cpp
 	)
 if(MSVC)

@@ -8,6 +8,7 @@
 #include <vector>
 #include <set>
 #include <string>
+#include <format>
 #include <optional>
 #include <functional>
 #include <memory>
@@ -80,4 +81,6 @@ enum direction
 };
 
 void log(string const& msg);
+void error(string const& msg);
 void fail(string const& msg);
+

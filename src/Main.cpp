@@ -3,15 +3,22 @@
 #include <filesystem>
 #include "GUI.hpp"
 #include "Font.hpp"
+#include "Config.hpp"
 #include "SudokuGrid.hpp"
+
+extern ALLEGRO_CONFIG* config;
 
 void log(string const& msg)
 {
-	std::cout << msg << std::endl;
+	std::cout << "[LOG] " << msg << std::endl;
+}
+void error(string const& msg)
+{
+	std::cerr << "[ERROR] " << msg << std::endl;
 }
 void fail(string const& msg)
 {
-	log(msg);
+	std::cerr << "[FATAL] " << msg << std::endl;
 	exit(1);
 }
 
@@ -360,6 +367,20 @@ void on_resize()
 		popup->on_disp_resize();
 }
 
+void save_cfg()
+{
+	if(!al_save_config_file("APSudoku.cfg", config))
+		error("Failed to save config file! Settings may not be savable!");
+}
+void default_config()
+{
+	set_config_col("Test", "BGC", C_LGRAY);
+}
+void refresh_configs()
+{
+	if(auto c = get_config_col("Test", "BGC"))
+		C_BG = *c;
+}
 void setup_allegro()
 {
 	if(!al_init())
@@ -403,8 +424,16 @@ void setup_allegro()
 	al_set_window_constraints(display, CANVAS_W, CANVAS_H, 0, 0);
 	al_apply_window_constraints(display, true);
 	
+	config = al_create_config();
+	default_config();
+	if(ALLEGRO_CONFIG* cfg = al_load_config_file("APSudoku.cfg"))
+	{
+		al_merge_config_into(config, cfg);
+		al_destroy_config(cfg);
+	}
+	save_cfg();
+	refresh_configs();
 	on_resize();
-	
 	init_fonts();
 }
 
