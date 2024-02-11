@@ -23,6 +23,116 @@ InputState* cur_input;
 double render_xscale = 1, render_yscale = 1;
 int render_resx = CANVAS_W, render_resy = CANVAS_H;
 
+void DrawContainer::run()
+{
+	al_get_mouse_state(cur_input);
+	auto buttons = cur_input->buttons;
+	auto os = cur_input->oldstate & 0x7;
+	
+	if(buttons & os) //Remember the held state
+		buttons &= os;
+	
+	cur_input->buttons &= ~0x7;
+	if(buttons & 0x1)
+		cur_input->buttons |= 0x1;
+	else if(buttons & 0x2)
+		cur_input->buttons |= 0x2;
+	else if(buttons & 0x4)
+		cur_input->buttons |= 0x4;
+	
+	//Mouse coordinates are based on the 'display'
+	//Scale down the x/y before running mouse logic:
+	u16 mx = cur_input->x, my = cur_input->y;
+	unscale_pos(mx,my);
+	cur_input->x = mx;
+	cur_input->y = my;
+	//
+	mouse();
+	
+	cur_input->oldstate = cur_input->buttons;
+}
+void DrawContainer::draw()
+{
+	for(DrawnObject const* obj : *this)
+		obj->draw();
+}
+bool DrawContainer::mouse()
+{
+	for(auto it = rbegin(); it != rend(); ++it)
+		if((*it)->mouse())
+			return true;
+	return false;
+}
+void DrawContainer::on_disp_resize()
+{
+	for(DrawnObject* obj : *this)
+		obj->on_disp_resize();
+}
+void DrawContainer::key_event(ALLEGRO_EVENT const& ev)
+{
+	for(DrawnObject* obj : *this)
+		obj->key_event(ev);
+}
+void DrawContainer::run_loop()
+{
+	redraw = true;
+	while(program_running && (!run_proc || run_proc()))
+	{
+		if(redraw && events_empty())
+		{
+			run();
+			dlg_draw();
+			dlg_render();
+			redraw = false;
+		}
+		else run_events(redraw);
+	}
+}
+
+void Dialog::run()
+{
+	InputState* old = cur_input;
+	cur_input = &state;
+	DrawContainer::run();
+	cur_input = old;
+}
+void Dialog::draw()
+{
+	InputState* old = cur_input;
+	cur_input = &state;
+	DrawContainer::draw();
+	cur_input = old;
+}
+bool Dialog::mouse()
+{
+	InputState* old = cur_input;
+	cur_input = &state;
+	bool ret = DrawContainer::mouse();
+	cur_input = old;
+	return ret;
+}
+void Dialog::on_disp_resize()
+{
+	InputState* old = cur_input;
+	cur_input = &state;
+	DrawContainer::on_disp_resize();
+	cur_input = old;
+}
+void Dialog::key_event(ALLEGRO_EVENT const& ev)
+{
+	InputState* old = cur_input;
+	cur_input = &state;
+	DrawContainer::key_event(ev);
+	cur_input = old;
+}
+void Dialog::run_loop()
+{
+	InputState* old = cur_input;
+	cur_input = &state;
+	DrawContainer::run_loop();
+	cur_input = old;
+}
+
 void clear_a5_bmp(ALLEGRO_COLOR col, ALLEGRO_BITMAP* bmp)
 {
 	if(bmp)
@@ -343,7 +453,7 @@ u32 mouse_killfocus(MouseEvent e)
 //POPUPS
 bool pop_confirm(string const& title, string const& msg, string truestr, string falsestr)
 {
-	vector<DrawnObject*> popup;
+	Dialog popup;
 	popups.emplace_back(&popup);
 	
 	bool redraw = true;
@@ -492,24 +602,9 @@ bool pop_confirm(string const& title, string const& msg, string truestr, string 
 	popup.push_back(&ok);
 	popup.push_back(&cancel);
 	
-	InputState popup_state;
-	InputState* old_state = cur_input;
-	cur_input = &popup_state;
 	on_resize();
-	while(running && program_running)
-	{
-		if(redraw && events_empty())
-		{
-			dlg_run(popup);
-			dlg_draw();
-			dlg_render();
-			redraw = false;
-		}
-		
-		if(running)
-			run_events(redraw);
-	}
-	cur_input = old_state;
+	popup.run_proc = [&running](){return running;};
+	popup.run_loop();
 	popups.pop_back();
 	return ret;
 }

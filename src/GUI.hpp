@@ -31,6 +31,50 @@ extern ALLEGRO_COLOR
 extern double render_xscale, render_yscale;
 extern int render_resx, render_resy;
 
+struct InputObject;
+struct InputState : public ALLEGRO_MOUSE_STATE
+{
+	int oldstate = 0;
+	InputObject* hovered = nullptr;
+	InputObject* focused = nullptr;
+	
+	bool lclick() const {return (buttons&0x7) == 0x1 && !(oldstate&0x7);}
+	bool rclick() const {return (buttons&0x7) == 0x2 && !(oldstate&0x7);}
+	bool mclick() const {return (buttons&0x7) == 0x4 && !(oldstate&0x7);}
+	bool lrelease() const {return !(buttons&0x1) && (oldstate&0x7) == 0x1;}
+	bool rrelease() const {return !(buttons&0x2) && (oldstate&0x7) == 0x2;}
+	bool mrelease() const {return !(buttons&0x4) && (oldstate&0x7) == 0x4;}
+	bool shift() const;
+	bool ctrl_cmd() const;
+	bool alt() const;
+};
+extern InputState* cur_input;
+
+struct DrawContainer : public vector<DrawnObject*>
+{
+	bool redraw = true;
+	std::function<bool()> run_proc;
+	virtual void run();
+	virtual void draw();
+	virtual bool mouse();
+	virtual void on_disp_resize();
+	virtual void key_event(ALLEGRO_EVENT const& ev);
+	
+	virtual void run_loop();
+};
+
+struct Dialog : public DrawContainer
+{
+	InputState state;
+	virtual void run() override;
+	virtual void draw() override;
+	virtual bool mouse() override;
+	virtual void on_disp_resize() override;
+	virtual void key_event(ALLEGRO_EVENT const& ev) override;
+	
+	virtual void run_loop() override;
+};
+
 void clear_a5_bmp(ALLEGRO_COLOR col, ALLEGRO_BITMAP* bmp = nullptr);
 
 enum MouseEvent
@@ -88,23 +132,6 @@ struct InputObject : public DrawnObject
 private:
 	void process(u32 retcode);
 };
-struct InputState : public ALLEGRO_MOUSE_STATE
-{
-	int oldstate = 0;
-	InputObject* hovered = nullptr;
-	InputObject* focused = nullptr;
-	
-	bool lclick() const {return (buttons&0x7) == 0x1 && !(oldstate&0x7);}
-	bool rclick() const {return (buttons&0x7) == 0x2 && !(oldstate&0x7);}
-	bool mclick() const {return (buttons&0x7) == 0x4 && !(oldstate&0x7);}
-	bool lrelease() const {return !(buttons&0x1) && (oldstate&0x7) == 0x1;}
-	bool rrelease() const {return !(buttons&0x2) && (oldstate&0x7) == 0x2;}
-	bool mrelease() const {return !(buttons&0x4) && (oldstate&0x7) == 0x4;}
-	bool shift() const;
-	bool ctrl_cmd() const;
-	bool alt() const;
-};
-extern InputState* cur_input;
 
 void update_scale();
 void scale_x(u16& x);

@@ -32,8 +32,8 @@ using std::nullopt;
 
 struct FontDef;
 struct DrawnObject;
-extern vector<vector<DrawnObject*>*> popups;
-void dlg_run(vector<DrawnObject*>& vec);
+struct DrawContainer;
+extern vector<DrawContainer*> popups;
 void dlg_draw();
 void dlg_render();
 void run_events(bool& redraw);
@@ -41,6 +41,7 @@ bool events_empty();
 void on_resize();
 
 extern bool program_running;
+extern bool settings_unsaved;
 
 enum Screen
 {

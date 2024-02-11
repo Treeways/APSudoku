@@ -41,8 +41,8 @@ Sudoku::Grid grid { GRID_X, GRID_Y };
 Button swap_btns[NUM_SCRS];
 Screen curscr = SCR_SUDOKU;
 
-map<Screen,vector<DrawnObject*>> gui_objects;
-vector<vector<DrawnObject*>*> popups;
+map<Screen,DrawContainer> gui_objects;
+vector<DrawContainer*> popups;
 bool settings_unsaved = false;
 
 void swap_screen(Screen scr)
@@ -124,42 +124,6 @@ void build_gui()
 	}
 }
 
-void __run_mouse(vector<DrawnObject*>& vec)
-{
-	for (auto it = vec.rbegin(); it != vec.rend(); ++it)
-		if((*it)->mouse())
-			return;
-}
-InputState input_state;
-void dlg_run(vector<DrawnObject*>& vec)
-{
-	al_get_mouse_state(cur_input);
-	auto buttons = cur_input->buttons;
-	auto os = cur_input->oldstate & 0x7;
-	
-	if(buttons & os) //Remember the held state
-		buttons &= os;
-	
-	cur_input->buttons &= ~0x7;
-	if(buttons & 0x1)
-		cur_input->buttons |= 0x1;
-	else if(buttons & 0x2)
-		cur_input->buttons |= 0x2;
-	else if(buttons & 0x4)
-		cur_input->buttons |= 0x4;
-	
-	//Mouse coordinates are based on the 'display'
-	//Scale down the x/y before running mouse logic:
-	u16 mx = cur_input->x, my = cur_input->y;
-	unscale_pos(mx,my);
-	cur_input->x = mx;
-	cur_input->y = my;
-	//
-	__run_mouse(vec);
-	
-	cur_input->oldstate = cur_input->buttons;
-}
-
 void dlg_draw()
 {
 	ALLEGRO_STATE oldstate;
@@ -168,12 +132,9 @@ void dlg_draw()
 	al_set_target_bitmap(canvas);
 	clear_a5_bmp(C_BG);
 	
-	for(DrawnObject* obj : gui_objects[curscr])
-		obj->draw();
-	
-	for(vector<DrawnObject*>* p : popups)
-		for(DrawnObject* obj : *p)
-			obj->draw();
+	gui_objects[curscr].draw();
+	for(DrawContainer* p : popups)
+		p->draw();
 	
 	al_restore_state(&oldstate);
 }
@@ -239,7 +200,7 @@ void run_events(bool& redraw)
 		case ALLEGRO_EVENT_KEY_DOWN:
 		case ALLEGRO_EVENT_KEY_UP:
 		case ALLEGRO_EVENT_KEY_CHAR:
-			if(cur_input->focused)
+			if(cur_input && cur_input->focused)
 				cur_input->focused->key_event(ev);
 			break;
 	}
@@ -271,20 +232,20 @@ int main(int argc, char **argv)
 	
 	init_grid();
 	
+	InputState input_state;
 	cur_input = &input_state;
 	al_start_timer(timer);
 	bool redraw = true;
 	program_running = true;
 	while(program_running)
 	{
-		if(redraw && al_is_event_queue_empty(events))
+		if(redraw && events_empty())
 		{
-			dlg_run(gui_objects[curscr]);
+			gui_objects[curscr].run();
 			dlg_draw();
 			dlg_render();
 			redraw = false;
 		}
-		
 		run_events(redraw);
 	}
 	
@@ -315,13 +276,9 @@ void on_resize()
 	scale_fonts();
 	
 	for(int scr = 0; scr < NUM_SCRS; ++scr)
-	{
-		for(DrawnObject* obj : gui_objects[Screen(scr)])
-			obj->on_disp_resize();
-	}
-	for(vector<DrawnObject*>* popup : popups)
-		for(DrawnObject* obj : *popup)
-			obj->on_disp_resize();
+		gui_objects[Screen(scr)].on_disp_resize();
+	for(DrawContainer* popup : popups)
+		popup->on_disp_resize();
 }
 
 void setup_allegro()
