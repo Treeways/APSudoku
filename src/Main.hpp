@@ -98,19 +98,4 @@ void log(string const& msg);
 void error(string const& msg);
 void fail(string const& msg);
 
-template<typename T>
-T vbound(T v, T low, T high)
-{
-	if(low > high)
-	{
-		T tmp = low;
-		low = high;
-		high = tmp;
-	}
-	if(v < low)
-		return low;
-	if(v > high)
-		return high;
-	return v;
-}
-
+#include "Util.hpp"

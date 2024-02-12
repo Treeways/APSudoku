@@ -331,6 +331,7 @@ void init_grid()
 	}
 }
 void setup_allegro();
+void save_cfg();
 bool program_running = true;
 u64 cur_frame = 0;
 void run_events(bool& redraw)
@@ -404,7 +405,6 @@ int main(int argc, char **argv)
 		}
 		run_events(redraw);
 	}
-	
 	return 0;
 }
 
@@ -436,14 +436,7 @@ void on_resize()
 		popup->on_disp_resize();
 }
 
-void save_cfg()
-{
-	if(!al_save_config_file("APSudoku.cfg", configs[CFG_ROOT]))
-		error("Failed to save config file! Settings may not be savable!");
-	if(!al_save_config_file("Theme.cfg", configs[CFG_THEME]))
-		error("Failed to save theme file! Theme may not be savable!");
-}
-void default_theme()
+void default_theme() // Resets the theme config to default
 {
 	set_cfg(CFG_THEME);
 	al_add_config_section(config, "Style");
@@ -454,22 +447,55 @@ void default_theme()
 	set_config_col("Color", "Background", C_LGRAY);
 	set_cfg(CFG_ROOT);
 }
-void default_configs()
+void default_configs() // Resets configs to default
 {
 	set_cfg(CFG_ROOT);
 	set_config_dbl("GUI", "start_scale", 2.0);
 	default_theme();
 }
-void refresh_configs()
+void refresh_configs() // Uses values in the loaded configs to change the program
 {
+	bool wrote_any = false;
+	bool b;
+	#define DBL_BOUND(var, low, high, sec, key) \
+	if(auto d = get_config_dbl(sec, key)) \
+	{ \
+		var = vbound(*d,low,high,b); \
+		if(b) \
+			set_config_dbl(sec, key, var); \
+		wrote_any = wrote_any || b; \
+	}
+	
 	set_cfg(CFG_THEME);
-	if(auto d = get_config_dbl("Style", "fill_radiobubbles"))
-		RadioButton::fill_sel = vbound(*d,0.0,1.0);
-	if(auto d = get_config_dbl("Style", "fill_cboxes"))
-		CheckBox::fill_sel = vbound(*d,0.0,1.0);
+	DBL_BOUND(RadioButton::fill_sel,0.5,1.0,"Style", "fill_radiobubbles")
+	DBL_BOUND(CheckBox::fill_sel,0.5,1.0,"Style", "fill_cboxes")
 	if(auto c = get_config_col("Color", "Background"))
 		C_BG = *c;
 	set_cfg(CFG_ROOT);
+	
+	if(wrote_any)
+		save_cfg();
+	#undef DBL_BOUND
+}
+void load_cfg() // Loads configs from file
+{
+	if(ALLEGRO_CONFIG* cfg = al_load_config_file("APSudoku.cfg"))
+	{
+		al_merge_config_into(configs[CFG_ROOT], cfg);
+		al_destroy_config(cfg);
+	}
+	if(ALLEGRO_CONFIG* cfg = al_load_config_file("Theme.cfg"))
+	{
+		al_merge_config_into(configs[CFG_THEME], cfg);
+		al_destroy_config(cfg);
+	}
+}
+void save_cfg() // Saves the configs to file
+{
+	if(!al_save_config_file("APSudoku.cfg", configs[CFG_ROOT]))
+		error("Failed to save config file! Settings may not be savable!");
+	if(!al_save_config_file("Theme.cfg", configs[CFG_THEME]))
+		error("Failed to save theme file! Theme may not be savable!");
 }
 void setup_allegro()
 {
@@ -491,16 +517,7 @@ void setup_allegro()
 	configs[CFG_ROOT] = al_create_config();
 	configs[CFG_THEME] = al_create_config();
 	default_configs();
-	if(ALLEGRO_CONFIG* cfg = al_load_config_file("APSudoku.cfg"))
-	{
-		al_merge_config_into(configs[CFG_ROOT], cfg);
-		al_destroy_config(cfg);
-	}
-	if(ALLEGRO_CONFIG* cfg = al_load_config_file("Theme.cfg"))
-	{
-		al_merge_config_into(configs[CFG_THEME], cfg);
-		al_destroy_config(cfg);
-	}
+	load_cfg();
 	save_cfg();
 	set_cfg(CFG_ROOT);
 	
