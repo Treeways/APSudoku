@@ -446,22 +446,37 @@ void default_configs() // Resets configs to default
 }
 void refresh_configs() // Uses values in the loaded configs to change the program
 {
+	using namespace Sudoku;
 	ConfigStash stash;
 	
 	bool wrote_any = false;
 	bool b;
 	#define DBL_BOUND(var, low, high, sec, key) \
-	if(auto d = get_config_dbl(sec, key)) \
+	if(auto val = get_config_dbl(sec, key)) \
 	{ \
-		var = vbound(*d,low,high,b); \
+		var = vbound(*val,low,high,b); \
 		if(b) \
 			set_config_dbl(sec, key, var); \
 		wrote_any = wrote_any || b; \
 	}
+	#define INT_BOUND(var, low, high, sec, key) \
+	if(auto val = get_config_int(sec, key)) \
+	{ \
+		var = vbound(*val,low,high,b); \
+		if(b) \
+			set_config_dbl(sec, key, var); \
+		wrote_any = wrote_any || b; \
+	}
+	#define BOOL_READ(var, sec, key) \
+	if(auto val = get_config_bool(sec, key)) \
+	{ \
+		var = *val; \
+	}
 	
 	set_cfg(CFG_THEME);
-	DBL_BOUND(RadioButton::fill_sel,0.5,1.0,"Style", "fill_radiobubbles")
-	DBL_BOUND(CheckBox::fill_sel,0.5,1.0,"Style", "fill_cboxes")
+	DBL_BOUND(RadioButton::fill_sel,0.5,1.0,"Style", "RadioButton Fill %")
+	DBL_BOUND(CheckBox::fill_sel,0.5,1.0,"Style", "CheckBox Fill %")
+	INT_BOUND(Grid::sel_style,0,NUM_STYLE-1,"Style","Grid: Cursor 2 Style")
 	Theme::read_palette();
 	set_cfg(CFG_ROOT);
 	

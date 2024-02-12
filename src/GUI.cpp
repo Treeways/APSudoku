@@ -2,36 +2,6 @@
 #include "GUI.hpp"
 #include "Font.hpp"
 
-ALLEGRO_COLOR
-	C_CELL_BG = C_WHITE
-	, C_CELL_BORDER = C_LGRAY
-	, C_CELL_TEXT = C_BLUE
-	, C_CELL_GIVEN = C_BLACK
-	, C_REGION_BORDER = C_BLACK
-	, C_LBL_TEXT = C_BLACK
-	, C_LBL_SHADOW = C_TRANS
-	, C_BUTTON_FG = C_BLACK
-	, C_BUTTON_BG = C_WHITE
-	, C_BUTTON_HOVBG = C_LLGRAY
-	, C_BUTTON_BORDER = C_BLACK
-	, C_BUTTON_DISTXT = C_LGRAY
-	, C_RAD_BG = C_WHITE
-	, C_RAD_FG = C_BLACK
-	, C_RAD_DIS_BG = C_LGRAY
-	, C_RAD_DIS_FG = C_DGRAY
-	, C_RAD_HOVBG = C_LLGRAY
-	, C_RAD_BORDER = C_BLACK
-	, C_RAD_TXT = C_BLACK
-	, C_TF_BG = C_WHITE
-	, C_TF_FG = C_BLACK
-	, C_TF_DIS_BG = C_LGRAY
-	, C_TF_DIS_FG = C_DGRAY
-	, C_TF_HOVBG = C_LLGRAY
-	, C_TF_BORDER = C_BLACK
-	, C_TF_CURSOR = C_BLACK
-	, C_HIGHLIGHT = al_map_rgb(76, 164, 255)
-	, C_HIGHLIGHT2 = al_map_rgb(255, 164, 76)
-	;
 InputState* cur_input;
 double render_xscale = 1, render_yscale = 1;
 int render_resx = CANVAS_W, render_resy = CANVAS_H;
@@ -181,11 +151,11 @@ void clear_a5_bmp(Color col, ALLEGRO_BITMAP* bmp)
 		al_store_state(&old_state, ALLEGRO_STATE_TARGET_BITMAP);
 		
 		al_set_target_bitmap(bmp);
-		al_clear_to_color(col.get());
+		al_clear_to_color(col);
 		
 		al_restore_state(&old_state);
 	}
-	else al_clear_to_color(col.get());
+	else al_clear_to_color(col);
 }
 
 bool InputState::shift() const
@@ -540,14 +510,15 @@ void RadioButton::draw() const
 	const Color bgc = dis ? C_RAD_DIS_BG : (hov ? C_RAD_HOVBG : C_RAD_BG);
 	const Color fgc = dis ? C_RAD_DIS_FG : C_RAD_FG;
 	const Color border = C_RAD_BORDER;
-	al_draw_filled_circle(CX, CY, RAD+pad/2, border.get());
-	al_draw_filled_circle(CX, CY, RAD, bgc.get());
+	const Color textc = C_RAD_TXT;
+	al_draw_filled_circle(CX, CY, RAD+pad/2 + (hov ? 0 : -1), border);
+	al_draw_filled_circle(CX, CY, RAD, bgc);
 	if(sel)
-		al_draw_filled_circle(CX, CY, RAD2, fgc.get());
+		al_draw_filled_circle(CX, CY, RAD2, fgc);
 	ALLEGRO_FONT* f = font.get();
 	Y = CY - al_get_font_line_height(f) / 2;
 	if(!text.empty())
-		al_draw_text(f, C_RAD_TXT, X, Y, ALLEGRO_ALIGN_LEFT, text.c_str());
+		al_draw_text(f, textc, X, Y, ALLEGRO_ALIGN_LEFT, text.c_str());
 }
 u32 RadioButton::handle_ev(MouseEvent e)
 {
@@ -638,18 +609,19 @@ void CheckBox::draw() const
 	scale_min(RAD);
 	scale_min(RAD2);
 	RAD2 = RAD*fill_sel;
-	u16 BRAD = RAD+pad/2;
+	u16 BRAD = RAD+pad/2 + (hov ? 0 : -1);
 	const Color bgc = dis ? C_RAD_DIS_BG : (hov ? C_RAD_HOVBG : C_RAD_BG);
 	const Color fgc = dis ? C_RAD_DIS_FG : C_RAD_FG;
 	const Color border = C_RAD_BORDER;
-	al_draw_filled_rectangle(CX-BRAD, CY-BRAD, CX+BRAD, CY+BRAD, border.get());
-	al_draw_filled_rectangle(CX-RAD, CY-RAD, CX+RAD, CY+RAD, bgc.get());
+	const Color textc = C_RAD_TXT;
+	al_draw_filled_rectangle(CX-BRAD, CY-BRAD, CX+BRAD, CY+BRAD, border);
+	al_draw_filled_rectangle(CX-RAD, CY-RAD, CX+RAD, CY+RAD, bgc);
 	if(sel)
-		al_draw_filled_rectangle(CX-RAD2, CY-RAD2, CX+RAD2, CY+RAD2, fgc.get());
+		al_draw_filled_rectangle(CX-RAD2, CY-RAD2, CX+RAD2, CY+RAD2, fgc);
 	ALLEGRO_FONT* f = font.get();
 	Y = CY - al_get_font_line_height(f) / 2;
 	if(!text.empty())
-		al_draw_text(f, C_RAD_TXT, X, Y, ALLEGRO_ALIGN_LEFT, text.c_str());
+		al_draw_text(f, textc, X, Y, ALLEGRO_ALIGN_LEFT, text.c_str());
 }
 double CheckBox::fill_sel = 0.5;
 
@@ -673,14 +645,14 @@ void Button::draw() const
 		fg = C_BUTTON_DISTXT;
 	
 	// Fill the button
-	al_draw_filled_rectangle(X, Y, X+W-1, Y+H-1, bg.get());
+	al_draw_filled_rectangle(X, Y, X+W-1, Y+H-1, bg);
 	// Draw the border 
-	al_draw_rectangle(X, Y, X+W-1, Y+H-1, border.get(), 1);
+	al_draw_rectangle(X, Y, X+W-1, Y+H-1, border, hov ? 2 : 1);
 	// Finally, the text
 	ALLEGRO_FONT* f = font.get();
 	int tx = (X+W/2);
 	int ty = (Y+H/2)-(al_get_font_line_height(f)/2);
-	al_draw_text(f, fg.get(), tx, ty, ALLEGRO_ALIGN_CENTRE, text.c_str());
+	al_draw_text(f, fg, tx, ty, ALLEGRO_ALIGN_CENTRE, text.c_str());
 }
 
 u32 Button::handle_ev(MouseEvent e)
@@ -721,7 +693,7 @@ void ShapeRect::draw() const
 	scale_pos(X,Y,W,H);
 	if(c_border)
 		al_draw_rectangle(X, Y, X+W-1, Y+H-1, c_border->get(), brd_thick);
-	al_draw_filled_rectangle(X, Y, X+W-1, Y+H-1, c_fill.get());
+	al_draw_filled_rectangle(X, Y, X+W-1, Y+H-1, c_fill);
 }
 
 ShapeRect::ShapeRect()
@@ -743,7 +715,7 @@ void draw_text(u16 X, u16 Y, string const& str, i8 align, FontDef font, Color c_
 	ALLEGRO_FONT* f = font.get();
 	if(c_shadow)
 		al_draw_text(f, c_shadow->get(), X + 2, Y + 2, align, str.c_str());
-	al_draw_text(f, c_txt.get(), X, Y, align, str.c_str());
+	al_draw_text(f, c_txt, X, Y, align, str.c_str());
 }
 void Label::draw() const
 {
@@ -808,20 +780,21 @@ void TextField::draw() const
 	ALLEGRO_FONT* f = font.get();
 	const Color bg = dis ? C_TF_DIS_BG : (hov ? C_TF_HOVBG : C_TF_BG);
 	const Color fg = dis ? C_TF_DIS_FG : C_TF_FG;
-	const Color border = C_TF_BORDER;
-	al_draw_rectangle(X,Y,X+W-1,Y+H-1,border.get(),2);
-	al_draw_filled_rectangle(X,Y,X+W-1,Y+H-1,bg.get());
+	const Color border = C_TF_BORDER; 
+	const Color cursorc = C_TF_CURSOR;
+	al_draw_rectangle(X,Y,X+W-1,Y+H-1,border,hov ? 4 : 2);
+	al_draw_filled_rectangle(X,Y,X+W-1,Y+H-1,bg);
 	
 	ClipRect::set(X,Y,W,H);
 	
 	if(!content.empty())
-		al_draw_text(f, fg.get(), X + HPAD, Y + VPAD, ALLEGRO_ALIGN_LEFT, content.c_str());
+		al_draw_text(f, fg, X + HPAD, Y + VPAD, ALLEGRO_ALIGN_LEFT, content.c_str());
 	if(foc && cpos <= content.size() && blinkrate(cur_frame,60)) //typing cursor
 	{
 		string tmp = content.substr(0,cpos);
 		u16 subw = al_get_text_width(f,tmp.c_str());
 		auto lx = X+HPAD+subw+1;
-		al_draw_line(lx, Y+VPAD, lx, Y+H-VPAD, C_TF_CURSOR, 0);
+		al_draw_line(lx, Y+VPAD, lx, Y+H-VPAD, cursorc, 0);
 	}
 	
 	clip.load();

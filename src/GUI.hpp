@@ -3,36 +3,6 @@
 #include "Main.hpp"
 #include "Font.hpp"
 #include "Theme.hpp"
-extern ALLEGRO_COLOR
-	C_CELL_BG
-	, C_CELL_BORDER
-	, C_CELL_TEXT
-	, C_CELL_GIVEN
-	, C_REGION_BORDER
-	, C_LBL_TEXT
-	, C_LBL_SHADOW
-	, C_BUTTON_FG
-	, C_BUTTON_BG
-	, C_BUTTON_HOVBG
-	, C_BUTTON_BORDER
-	, C_BUTTON_DISTXT
-	, C_RAD_BG
-	, C_RAD_HOVBG
-	, C_RAD_FG
-	, C_RAD_DIS_BG
-	, C_RAD_DIS_FG
-	, C_RAD_BORDER
-	, C_RAD_TXT
-	, C_TF_BG
-	, C_TF_FG
-	, C_TF_DIS_BG
-	, C_TF_DIS_FG
-	, C_TF_HOVBG
-	, C_TF_BORDER
-	, C_TF_CURSOR
-	, C_HIGHLIGHT
-	, C_HIGHLIGHT2
-	;
 extern double render_xscale, render_yscale;
 extern int render_resx, render_resy;
 

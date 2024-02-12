@@ -1,6 +1,7 @@
 #include "Main.hpp"
 #include "Config.hpp"
 #include "Theme.hpp"
+#include "SudokuGrid.hpp"
 
 using namespace Theme;
 
@@ -39,7 +40,7 @@ static void reset_palette()
 	set_cfg(CFG_THEME);
 	
 	#define X(name,capsname,def_c) \
-	set_color(#name,def_c);
+	set_color(name,def_c);
 	#include "Theme.xtable"
 	#undef X
 }
@@ -51,10 +52,14 @@ void reset() // Resets the theme config to default
 	al_add_config_section(config, "Style");
 	al_add_config_section(config, "Color");
 	al_add_config_comment(config, "Color", "Colors given as 0xRRGGBBAA");
-	set_config_dbl("Style", "fill_radiobubbles", 0.6);
-	set_config_dbl("Style", "fill_cboxes", 0.6);
+	al_add_config_comment(config, "Style", "% Fill between 0.5 and 1.0");
+	set_config_dbl("Style", "RadioButton Fill %", 0.6);
+	set_config_dbl("Style", "CheckBox Fill %", 0.6);
+	al_add_config_comment(config, "Style", "Styles: 0=none, 1=under, 2=over");
+	set_config_int("Style", "Grid: Cursor 2 Style", Sudoku::STYLE_OVER);
 	
 	reset_palette();
+	al_add_config_comment(config, "Color", "#");
 }
 
 void write_palette()
@@ -63,7 +68,7 @@ void write_palette()
 	set_cfg(CFG_THEME);
 	
 	#define X(name,capsname,def_c) \
-	set_color(#name,pal[C_##capsname]);
+	set_color(name,pal[C_##capsname]);
 	#include "Theme.xtable"
 	#undef X
 }
@@ -74,7 +79,7 @@ void read_palette()
 	set_cfg(CFG_THEME);
 	
 	#define X(name,capsname,def_c) \
-	if(auto c = get_config_col("Color", #name)) \
+	if(auto c = get_config_col("Color", name)) \
 		pal[C_##capsname] = *c;
 	#include "Theme.xtable"
 	#undef X
@@ -86,7 +91,7 @@ string name(PalIndex ind)
 	{
 		#define X(name,capsname,def_c) \
 		case C_##capsname: \
-			return #name;
+			return name;
 		#include "Theme.xtable"
 		#undef X
 		default:

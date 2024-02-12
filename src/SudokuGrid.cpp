@@ -36,8 +36,8 @@ namespace Sudoku
 	}
 	void Cell::draw(u16 X, u16 Y, u16 W, u16 H) const
 	{
-		al_draw_filled_rectangle(X, Y, X+W-1, Y+H-1, C_CELL_BG);
-		al_draw_rectangle(X, Y, X+W-1, Y+H-1, C_CELL_BORDER, 0.5);
+		al_draw_filled_rectangle(X, Y, X+W-1, Y+H-1, Color(C_CELL_BG));
+		al_draw_rectangle(X, Y, X+W-1, Y+H-1, Color(C_CELL_BORDER), 0.5);
 		
 		bool given = (flags & CFL_GIVEN);
 		if(val)
@@ -46,7 +46,7 @@ namespace Sudoku
 			ALLEGRO_FONT* f = fonts[FONT_ANSWER].get();
 			int tx = (X+W/2);
 			int ty = (Y+H/2)-(al_get_font_line_height(f)/2);
-			al_draw_text(f, given ? C_CELL_GIVEN : C_CELL_TEXT, tx, ty, ALLEGRO_ALIGN_CENTRE, text.c_str());
+			al_draw_text(f, Color(given ? C_CELL_GIVEN : C_CELL_TEXT), tx, ty, ALLEGRO_ALIGN_CENTRE, text.c_str());
 		}
 		else if(!given)
 		{
@@ -66,7 +66,7 @@ namespace Sudoku
 				ALLEGRO_FONT* f = fonts[font].get();
 				int tx = (X+W/2);
 				int ty = (Y+H/2)-(al_get_font_line_height(f)/2);
-				al_draw_text(f, C_CELL_TEXT, tx, ty, ALLEGRO_ALIGN_CENTRE, cen_marks.c_str());
+				al_draw_text(f, Color(C_CELL_TEXT), tx, ty, ALLEGRO_ALIGN_CENTRE, cen_marks.c_str());
 			}
 			if(!crn_marks.empty())
 			{
@@ -81,7 +81,7 @@ namespace Sudoku
 				for(int q = 0; q < 9 && q < crn_marks.size(); ++q)
 				{
 					buf[0] = crn_marks[q];
-					al_draw_text(f, C_CELL_TEXT, X+xs[q], Y+ys[q] - fh/2, ALLEGRO_ALIGN_CENTRE, buf);
+					al_draw_text(f, Color(C_CELL_TEXT), X+xs[q], Y+ys[q] - fh/2, ALLEGRO_ALIGN_CENTRE, buf);
 				}
 			}
 		}
@@ -89,11 +89,10 @@ namespace Sudoku
 	void Cell::draw_sel(u16 X, u16 Y, u16 W, u16 H, u8 hlbits, bool special) const
 	{
 		u16 HLW = 4, HLH = 4;
-		ALLEGRO_COLOR const* col = &C_HIGHLIGHT;
+		Color col = C_HIGHLIGHT;
 		if(special)
 		{
-			col = &C_HIGHLIGHT2;
-			HLW = 2; HLH = 2;
+			col = C_HIGHLIGHT2;
 			hlbits = ~0;
 		}
 		if(!hlbits)
@@ -134,51 +133,51 @@ namespace Sudoku
 				switch(q)
 				{
 					case DIR_UP:
-						al_draw_filled_rectangle(TX, TY, TX+TW-1, TY+HLH-1, *col);
+						al_draw_filled_rectangle(TX, TY, TX+TW-1, TY+HLH-1, col);
 						hlbits &= ~((1<<DIR_UPLEFT)|(1<<DIR_UPRIGHT));
 						break;
 					case DIR_DOWN:
-						al_draw_filled_rectangle(TX, TY+TH-HLH, TX+TW-1, TY+TH-1, *col);
+						al_draw_filled_rectangle(TX, TY+TH-HLH, TX+TW-1, TY+TH-1, col);
 						hlbits &= ~((1<<DIR_DOWNLEFT)|(1<<DIR_DOWNRIGHT));
 						break;
 					case DIR_LEFT:
-						al_draw_filled_rectangle(TX, TY, TX+HLW-1, TY+TH-1, *col);
+						al_draw_filled_rectangle(TX, TY, TX+HLW-1, TY+TH-1, col);
 						hlbits &= ~((1<<DIR_UPLEFT)|(1<<DIR_DOWNLEFT));
 						break;
 					case DIR_RIGHT:
-						al_draw_filled_rectangle(TX+TW-HLW, TY, TX+TW-1, TY+TH-1, *col);
+						al_draw_filled_rectangle(TX+TW-HLW, TY, TX+TW-1, TY+TH-1, col);
 						hlbits &= ~((1<<DIR_UPRIGHT)|(1<<DIR_DOWNRIGHT));
 						break;
 					case DIR_UPLEFT:
 					{
 						u16 TX2 = TX-HLW, TWOFF = HLW;
 						u16 TY2 = TY-HLH, THOFF = HLH;
-						al_draw_filled_rectangle(TX2, TY, TX2+TWOFF+HLW-1, TY+HLH-1, *col);
-						al_draw_filled_rectangle(TX, TY2, TX+HLW-1, TY2+THOFF+HLH-1, *col);
+						al_draw_filled_rectangle(TX2, TY, TX2+TWOFF+HLW-1, TY+HLH-1, col);
+						al_draw_filled_rectangle(TX, TY2, TX+HLW-1, TY2+THOFF+HLH-1, col);
 						break;
 					}
 					case DIR_UPRIGHT:
 					{
 						u16 TX2 = TX, TWOFF = HLW;
 						u16 TY2 = TY-HLH, THOFF = HLH;
-						al_draw_filled_rectangle(TX2+TW-HLW, TY, TX2+TWOFF+TW-1, TY+HLH-1, *col);
-						al_draw_filled_rectangle(TX+TW-HLW, TY2, TX+TW-1, TY2+THOFF+HLH-1, *col);
+						al_draw_filled_rectangle(TX2+TW-HLW, TY, TX2+TWOFF+TW-1, TY+HLH-1, col);
+						al_draw_filled_rectangle(TX+TW-HLW, TY2, TX+TW-1, TY2+THOFF+HLH-1, col);
 						break;
 					}
 					case DIR_DOWNLEFT:
 					{
 						u16 TX2 = TX-HLW, TWOFF = HLW;
 						u16 TY2 = TY, THOFF = HLH;
-						al_draw_filled_rectangle(TX2, TY+TH-HLH, TX2+TWOFF+HLW-1, TY+TH-1, *col);
-						al_draw_filled_rectangle(TX, TY2+TH-HLH, TX+HLW-1, TY2+THOFF+TH-1, *col);
+						al_draw_filled_rectangle(TX2, TY+TH-HLH, TX2+TWOFF+HLW-1, TY+TH-1, col);
+						al_draw_filled_rectangle(TX, TY2+TH-HLH, TX+HLW-1, TY2+THOFF+TH-1, col);
 						break;
 					}
 					case DIR_DOWNRIGHT:
 					{
 						u16 TX2 = TX, TWOFF = HLW;
 						u16 TY2 = TY, THOFF = HLH;
-						al_draw_filled_rectangle(TX2+TW-HLW, TY+TH-HLH, TX2+TWOFF+TW-1, TY+TH-1, *col);
-						al_draw_filled_rectangle(TX+TW-HLW, TY2+TH-HLH, TX+TW-1, TY2+THOFF+TH-1, *col);
+						al_draw_filled_rectangle(TX2+TW-HLW, TY+TH-HLH, TX2+TWOFF+TW-1, TY+TH-1, col);
+						al_draw_filled_rectangle(TX+TW-HLW, TY2+TH-HLH, TX+TW-1, TY2+THOFF+TH-1, col);
 						break;
 					}
 				}
@@ -239,6 +238,8 @@ namespace Sudoku
 		return ret;
 	}
 
+	int Grid::sel_style = STYLE_OVER;
+	
 	Region Grid::get_row(u8 ind)
 	{
 		if(ind >= 9)
@@ -327,13 +328,27 @@ namespace Sudoku
 		for(u8 q = 0; q < 9*9; ++q) // Map selected
 			sel[q] = (cells[q].flags & CFL_SELECTED) != 0;
 		//
+		#define DRAW_FOCUS() \
+		if(focus_ind) \
+		{ \
+			u8 q = *focus_ind; \
+			u16 X = x + ((q%9)*CELL_SZ), \
+				Y = y + ((q/9)*CELL_SZ), \
+				W = CELL_SZ, H = CELL_SZ; \
+			scale_pos(X,Y,W,H); \
+			focus_cell->draw_sel(X, Y, W, H, 0, true); \
+		}
+		//
 		for(u8 q = 0; q < 9*9; ++q) // Cell draws
 		{
 			u16 X = x + ((q%9)*CELL_SZ),
 				Y = y + ((q/9)*CELL_SZ),
 				W = CELL_SZ, H = CELL_SZ;
 			scale_pos(X,Y,W,H);
-			cells[q].draw(X, Y, W, H);
+			Cell const& c = cells[q];
+			if(&c == focus_cell)
+				focus_ind = q;
+			c.draw(X, Y, W, H);
 		}
 		for(u8 q = 0; q < 9; ++q) // 3x3 box thicker borders
 		{
@@ -341,8 +356,9 @@ namespace Sudoku
 				Y = y + ((q/3)*(CELL_SZ*3)),
 				W = CELL_SZ*3, H = CELL_SZ*3;
 			scale_pos(X,Y,W,H);
-			al_draw_rectangle(X, Y, X+W-1, Y+H-1, C_REGION_BORDER, 2);
+			al_draw_rectangle(X, Y, X+W-1, Y+H-1, Color(C_REGION_BORDER), 2);
 		}
+		if(sel_style == STYLE_UNDER) DRAW_FOCUS()
 		for(u8 q = 0; q < 9*9; ++q) // Selected cell highlights
 		{
 			u16 X = x + ((q%9)*CELL_SZ),
@@ -351,8 +367,6 @@ namespace Sudoku
 			scale_pos(X,Y,W,H);
 			u8 hlbits = 0;
 			Cell const& c = cells[q];
-			if(&c == focus_cell)
-				focus_ind = q;
 			if(c.flags & CFL_SELECTED)
 			{
 				bool u,d,l,r;
@@ -375,15 +389,7 @@ namespace Sudoku
 			}
 			c.draw_sel(X, Y, W, H, hlbits, false);
 		}
-		if(focus_ind && selected.size() > 1)
-		{
-			u8 q = *focus_ind;
-			u16 X = x + ((q%9)*CELL_SZ),
-				Y = y + ((q/9)*CELL_SZ),
-				W = CELL_SZ, H = CELL_SZ;
-			scale_pos(X,Y,W,H);
-			focus_cell->draw_sel(X, Y, W, H, 0, true);
-		}
+		if(sel_style == STYLE_OVER) DRAW_FOCUS()
 	}
 	void Grid::key_event(ALLEGRO_EVENT const& ev)
 	{

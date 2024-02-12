@@ -27,6 +27,7 @@ struct Color
 	ALLEGRO_COLOR const& get() const;
 	Color(ALLEGRO_COLOR const& c);
 	Color(const PalIndex indx);
+	operator ALLEGRO_COLOR const&() const {return get();}
 private:
 	optional<ALLEGRO_COLOR> c;
 	optional<PalIndex> indx;

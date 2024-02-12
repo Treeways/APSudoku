@@ -50,8 +50,16 @@ namespace Sudoku
 		Region() = default;
 		friend struct Grid;
 	};
+	enum
+	{
+		STYLE_NONE,
+		STYLE_UNDER,
+		STYLE_OVER,
+		NUM_STYLE
+	};
 	struct Grid : public InputObject
 	{
+		static int sel_style;
 		Cell cells[9*9];
 		
 		Region get_row(u8 ind);
