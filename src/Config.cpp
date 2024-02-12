@@ -2,11 +2,65 @@
 #include "Config.hpp"
 
 ALLEGRO_CONFIG* config = nullptr;
+Config cur_config;
 
 ALLEGRO_CONFIG* configs[NUM_CFGS];
 void set_cfg(Config c)
 {
+	cur_config = c;
 	config = configs[c];
+}
+static string cfg_fname(Config c)
+{
+	switch(c)
+	{
+		case CFG_ROOT:
+			return "APSudoku.cfg";
+		case CFG_THEME:
+			return "Theme.cfg";
+	}
+	return "";
+}
+void load_cfg(Config c)
+{
+	if(ALLEGRO_CONFIG* cfg = al_load_config_file(cfg_fname(c).c_str()))
+	{
+		al_merge_config_into(configs[c], cfg);
+		al_destroy_config(cfg);
+	}
+}
+void load_cfg()
+{
+	for(auto c = 0; c < NUM_CFGS; ++c)
+		load_cfg(Config(c));
+}
+void save_cfg(Config c)
+{
+	if(!al_save_config_file(cfg_fname(c).c_str(), configs[c]))
+	{
+		switch(c)
+		{
+			case CFG_ROOT:
+				error("Failed to save config file! Settings may not be savable!");
+				break;
+			case CFG_THEME:
+				error("Failed to save theme file! Theme may not be savable!");
+				break;
+		}
+	}
+}
+void save_cfg()
+{
+	for(auto c = 0; c < NUM_CFGS; ++c)
+		save_cfg(Config(c));
+}
+
+ConfigStash::ConfigStash()
+	: val(cur_config)
+{}
+ConfigStash::~ConfigStash()
+{
+	set_cfg(val);
 }
 
 void set_config_bool(char const* sec, char const* key, bool val)

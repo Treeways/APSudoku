@@ -2,19 +2,9 @@
 
 #include "Main.hpp"
 #include "Font.hpp"
-inline ALLEGRO_COLOR
-	C_TRANS = al_map_rgba(0,0,0,0)
-	, C_WHITE = al_map_rgb(255,255,255)
-	, C_BLACK = al_map_rgb(0,0,0)
-	, C_BLUE = al_map_rgb(30, 107, 229)
-	, C_LLGRAY = al_map_rgb(224, 224, 224)
-	, C_LGRAY = al_map_rgb(192, 192, 192)
-	, C_MGRAY = al_map_rgb(128, 128, 128)
-	, C_DGRAY = al_map_rgb(64, 64, 64)
-	;
+#include "Theme.hpp"
 extern ALLEGRO_COLOR
-	C_BG
-	, C_CELL_BG
+	C_CELL_BG
 	, C_CELL_BORDER
 	, C_CELL_TEXT
 	, C_CELL_GIVEN
@@ -104,7 +94,7 @@ struct Dialog : public DrawContainer
 	virtual void run_loop() override;
 };
 
-void clear_a5_bmp(ALLEGRO_COLOR col, ALLEGRO_BITMAP* bmp = nullptr);
+void clear_a5_bmp(Color col, ALLEGRO_BITMAP* bmp = nullptr);
 
 void update_scale();
 void scale_min(u16& v);
@@ -324,19 +314,19 @@ struct Button : public InputObject
 
 struct ShapeRect : public InputObject
 {
-	ALLEGRO_COLOR c_fill = C_BG;
-	optional<ALLEGRO_COLOR> c_border = nullopt;
+	Color c_fill;
+	optional<Color> c_border;
 	double brd_thick;
 	
 	void draw() const override;
 	
 	ShapeRect();
 	ShapeRect(u16 X, u16 Y, u16 W, u16 H);
-	ShapeRect(u16 X, u16 Y, u16 W, u16 H, ALLEGRO_COLOR c);
-	ShapeRect(u16 X, u16 Y, u16 W, u16 H, ALLEGRO_COLOR c, ALLEGRO_COLOR cb, double border_thick);
+	ShapeRect(u16 X, u16 Y, u16 W, u16 H, Color c);
+	ShapeRect(u16 X, u16 Y, u16 W, u16 H, Color c, Color cb, double border_thick);
 };
 
-void draw_text(string const& str, i8 align, FontDef font, ALLEGRO_COLOR c_txt, optional<ALLEGRO_COLOR> c_shadow = nullopt);
+void draw_text(string const& str, i8 align, FontDef font, Color c_txt, optional<Color> c_shadow = nullopt);
 struct Label : public InputObject
 {
 	string text;
@@ -392,4 +382,3 @@ bool validate_alphanum(string const& ostr, string const& nstr, char c);
 bool pop_okc(string const& title, string const& msg);
 bool pop_yn(string const& title, string const& msg);
 void pop_inf(string const& title, string const& msg);
-

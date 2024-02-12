@@ -3,8 +3,7 @@
 #include "Font.hpp"
 
 ALLEGRO_COLOR
-	C_BG = C_LGRAY
-	, C_CELL_BG = C_WHITE
+	C_CELL_BG = C_WHITE
 	, C_CELL_BORDER = C_LGRAY
 	, C_CELL_TEXT = C_BLUE
 	, C_CELL_GIVEN = C_BLACK
@@ -174,7 +173,7 @@ void Dialog::run_loop()
 	cur_input = old;
 }
 
-void clear_a5_bmp(ALLEGRO_COLOR col, ALLEGRO_BITMAP* bmp)
+void clear_a5_bmp(Color col, ALLEGRO_BITMAP* bmp)
 {
 	if(bmp)
 	{
@@ -182,11 +181,11 @@ void clear_a5_bmp(ALLEGRO_COLOR col, ALLEGRO_BITMAP* bmp)
 		al_store_state(&old_state, ALLEGRO_STATE_TARGET_BITMAP);
 		
 		al_set_target_bitmap(bmp);
-		al_clear_to_color(col);
+		al_clear_to_color(col.get());
 		
 		al_restore_state(&old_state);
 	}
-	else al_clear_to_color(col);
+	else al_clear_to_color(col.get());
 }
 
 bool InputState::shift() const
@@ -538,12 +537,13 @@ void RadioButton::draw() const
 	scale_min(RAD);
 	scale_min(RAD2);
 	RAD2 = RAD*fill_sel;
-	al_draw_filled_circle(CX, CY, RAD+pad/2, C_RAD_BORDER);
-	ALLEGRO_COLOR const& bgc = dis ? C_RAD_DIS_BG : (hov ? C_RAD_HOVBG : C_RAD_BG);
-	ALLEGRO_COLOR const& fgc = dis ? C_RAD_DIS_FG : C_RAD_FG;
-	al_draw_filled_circle(CX, CY, RAD, bgc);
+	const Color bgc = dis ? C_RAD_DIS_BG : (hov ? C_RAD_HOVBG : C_RAD_BG);
+	const Color fgc = dis ? C_RAD_DIS_FG : C_RAD_FG;
+	const Color border = C_RAD_BORDER;
+	al_draw_filled_circle(CX, CY, RAD+pad/2, border.get());
+	al_draw_filled_circle(CX, CY, RAD, bgc.get());
 	if(sel)
-		al_draw_filled_circle(CX, CY, RAD2, fgc);
+		al_draw_filled_circle(CX, CY, RAD2, fgc.get());
 	ALLEGRO_FONT* f = font.get();
 	Y = CY - al_get_font_line_height(f) / 2;
 	if(!text.empty())
@@ -639,12 +639,13 @@ void CheckBox::draw() const
 	scale_min(RAD2);
 	RAD2 = RAD*fill_sel;
 	u16 BRAD = RAD+pad/2;
-	al_draw_filled_rectangle(CX-BRAD, CY-BRAD, CX+BRAD, CY+BRAD, C_RAD_BORDER);
-	ALLEGRO_COLOR const& bgc = dis ? C_RAD_DIS_BG : (hov ? C_RAD_HOVBG : C_RAD_BG);
-	ALLEGRO_COLOR const& fgc = dis ? C_RAD_DIS_FG : C_RAD_FG;
-	al_draw_filled_rectangle(CX-RAD, CY-RAD, CX+RAD, CY+RAD, bgc);
+	const Color bgc = dis ? C_RAD_DIS_BG : (hov ? C_RAD_HOVBG : C_RAD_BG);
+	const Color fgc = dis ? C_RAD_DIS_FG : C_RAD_FG;
+	const Color border = C_RAD_BORDER;
+	al_draw_filled_rectangle(CX-BRAD, CY-BRAD, CX+BRAD, CY+BRAD, border.get());
+	al_draw_filled_rectangle(CX-RAD, CY-RAD, CX+RAD, CY+RAD, bgc.get());
 	if(sel)
-		al_draw_filled_rectangle(CX-RAD2, CY-RAD2, CX+RAD2, CY+RAD2, fgc);
+		al_draw_filled_rectangle(CX-RAD2, CY-RAD2, CX+RAD2, CY+RAD2, fgc.get());
 	ALLEGRO_FONT* f = font.get();
 	Y = CY - al_get_font_line_height(f) / 2;
 	if(!text.empty())
@@ -658,27 +659,28 @@ void Button::draw() const
 	u16 X = x, Y = y, W = w, H = h;
 	scale_pos(X,Y,W,H);
 	
-	ALLEGRO_COLOR const* fg = &C_BUTTON_FG;
-	ALLEGRO_COLOR const* bg = &C_BUTTON_BG;
+	Color fg = C_BUTTON_FG;
+	Color bg = C_BUTTON_BG;
+	const Color border = C_BUTTON_BORDER;
 	bool dis = disabled();
 	bool sel = !dis && selected();
 	bool hov = !dis && (flags&FL_HOVERED);
 	if(sel)
 		std::swap(fg,bg);
 	else if(hov)
-		bg = &C_BUTTON_HOVBG;
+		bg = C_BUTTON_HOVBG;
 	else if(dis)
-		fg = &C_BUTTON_DISTXT;
+		fg = C_BUTTON_DISTXT;
 	
 	// Fill the button
-	al_draw_filled_rectangle(X, Y, X+W-1, Y+H-1, *bg);
+	al_draw_filled_rectangle(X, Y, X+W-1, Y+H-1, bg.get());
 	// Draw the border 
-	al_draw_rectangle(X, Y, X+W-1, Y+H-1, C_BUTTON_BORDER, 1);
+	al_draw_rectangle(X, Y, X+W-1, Y+H-1, border.get(), 1);
 	// Finally, the text
 	ALLEGRO_FONT* f = font.get();
 	int tx = (X+W/2);
 	int ty = (Y+H/2)-(al_get_font_line_height(f)/2);
-	al_draw_text(f, *fg, tx, ty, ALLEGRO_ALIGN_CENTRE, text.c_str());
+	al_draw_text(f, fg.get(), tx, ty, ALLEGRO_ALIGN_CENTRE, text.c_str());
 }
 
 u32 Button::handle_ev(MouseEvent e)
@@ -718,30 +720,30 @@ void ShapeRect::draw() const
 	u16 X = x, Y = y, W = w, H = h;
 	scale_pos(X,Y,W,H);
 	if(c_border)
-		al_draw_rectangle(X, Y, X+W-1, Y+H-1, *c_border, brd_thick);
-	al_draw_filled_rectangle(X, Y, X+W-1, Y+H-1, c_fill);
+		al_draw_rectangle(X, Y, X+W-1, Y+H-1, c_border->get(), brd_thick);
+	al_draw_filled_rectangle(X, Y, X+W-1, Y+H-1, c_fill.get());
 }
 
 ShapeRect::ShapeRect()
-	: InputObject()
+	: InputObject(), c_fill(C_BACKGROUND)
 {}
 ShapeRect::ShapeRect(u16 X, u16 Y, u16 W, u16 H)
-	: InputObject(X,Y,W,H)
+	: InputObject(X,Y,W,H), c_fill(C_BACKGROUND)
 {}
-ShapeRect::ShapeRect(u16 X, u16 Y, u16 W, u16 H, ALLEGRO_COLOR c)
+ShapeRect::ShapeRect(u16 X, u16 Y, u16 W, u16 H, Color c)
 	: InputObject(X,Y,W,H), c_fill(c), brd_thick(0)
 {}
-ShapeRect::ShapeRect(u16 X, u16 Y, u16 W, u16 H, ALLEGRO_COLOR c, ALLEGRO_COLOR cb, double border_thick)
+ShapeRect::ShapeRect(u16 X, u16 Y, u16 W, u16 H, Color c, Color cb, double border_thick)
 	: InputObject(X,Y,W,H), c_fill(c), c_border(cb), brd_thick(border_thick)
 {}
 
 // Label
-void draw_text(u16 X, u16 Y, string const& str, i8 align, FontDef font, ALLEGRO_COLOR c_txt, optional<ALLEGRO_COLOR> c_shadow = nullopt)
+void draw_text(u16 X, u16 Y, string const& str, i8 align, FontDef font, Color c_txt, optional<Color> c_shadow = nullopt)
 {
 	ALLEGRO_FONT* f = font.get();
 	if(c_shadow)
-		al_draw_text(f, *c_shadow, X+2, Y+2, align, str.c_str());
-	al_draw_text(f, c_txt, X, Y, align, str.c_str());
+		al_draw_text(f, c_shadow->get(), X + 2, Y + 2, align, str.c_str());
+	al_draw_text(f, c_txt.get(), X, Y, align, str.c_str());
 }
 void Label::draw() const
 {
@@ -804,15 +806,16 @@ void TextField::draw() const
 	ClipRect clip;
 	
 	ALLEGRO_FONT* f = font.get();
-	ALLEGRO_COLOR const& bg = dis ? C_TF_DIS_BG : (hov ? C_TF_HOVBG : C_TF_BG);
-	ALLEGRO_COLOR const& fg = dis ? C_TF_DIS_FG : C_TF_FG;
-	al_draw_rectangle(X,Y,X+W-1,Y+H-1,C_TF_BORDER,2);
-	al_draw_filled_rectangle(X,Y,X+W-1,Y+H-1,bg);
+	const Color bg = dis ? C_TF_DIS_BG : (hov ? C_TF_HOVBG : C_TF_BG);
+	const Color fg = dis ? C_TF_DIS_FG : C_TF_FG;
+	const Color border = C_TF_BORDER;
+	al_draw_rectangle(X,Y,X+W-1,Y+H-1,border.get(),2);
+	al_draw_filled_rectangle(X,Y,X+W-1,Y+H-1,bg.get());
 	
 	ClipRect::set(X,Y,W,H);
 	
 	if(!content.empty())
-		al_draw_text(f, fg, X+HPAD, Y+VPAD, ALLEGRO_ALIGN_LEFT, content.c_str());
+		al_draw_text(f, fg.get(), X + HPAD, Y + VPAD, ALLEGRO_ALIGN_LEFT, content.c_str());
 	if(foc && cpos <= content.size() && blinkrate(cur_frame,60)) //typing cursor
 	{
 		string tmp = content.substr(0,cpos);
@@ -1044,9 +1047,9 @@ optional<u8> pop_confirm(string const& title, string const& msg, vector<string> 
 	{ //BG, to allow 'clicking off' / shade the background
 		bg = make_shared<ShapeRect>(0,0,CANVAS_W,CANVAS_H,al_map_rgba(0,0,0,128));
 		
-		win = make_shared<ShapeRect>(POP_X,POP_Y,POP_W,POP_H,C_BG,C_BLACK,4);
+		win = make_shared<ShapeRect>(POP_X,POP_Y,POP_W,POP_H,C_BACKGROUND,C_BLACK,4);
 		
-		titlebar = make_shared<ShapeRect>(POP_X,POP_Y-TITLE_H,POP_W,TITLE_H,C_BG,C_BLACK,4);
+		titlebar = make_shared<ShapeRect>(POP_X,POP_Y-TITLE_H,POP_W,TITLE_H,C_BACKGROUND,C_BLACK,4);
 	}
 	{ //Buttons
 		btnrow = make_shared<Row>(0,0,BTN_PAD,2,ALLEGRO_ALIGN_CENTRE);

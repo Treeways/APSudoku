@@ -75,7 +75,7 @@ void build_gui()
 	FontDef font_l(-22, false, BOLD_NONE);
 	FontDef font_s(-15,false,BOLD_NONE);
 	{ // BG, to allow 'clicking off'
-		shared_ptr<ShapeRect> bg = make_shared<ShapeRect>(0,0,CANVAS_W,CANVAS_H,C_BG);
+		shared_ptr<ShapeRect> bg = make_shared<ShapeRect>(0,0,CANVAS_W,CANVAS_H,C_BACKGROUND);
 		bg->onMouse = mouse_killfocus;
 		for(int q = 0; q < NUM_SCRS; ++q)
 			gui_objects[static_cast<Screen>(q)].push_back(bg);
@@ -285,7 +285,7 @@ void dlg_draw()
 	al_store_state(&oldstate, ALLEGRO_STATE_TARGET_BITMAP);
 	
 	al_set_target_bitmap(canvas);
-	clear_a5_bmp(C_BG);
+	clear_a5_bmp(C_BACKGROUND);
 	
 	gui_objects[curscr].draw();
 	for(DrawContainer* p : popups)
@@ -300,7 +300,7 @@ void dlg_render()
 	al_store_state(&oldstate, ALLEGRO_STATE_TARGET_BITMAP);
 	
 	al_set_target_backbuffer(display);
-	clear_a5_bmp(C_BG);
+	clear_a5_bmp(C_BACKGROUND);
 	
 	al_draw_bitmap(canvas, 0, 0, 0);
 	
@@ -436,25 +436,18 @@ void on_resize()
 		popup->on_disp_resize();
 }
 
-void default_theme() // Resets the theme config to default
-{
-	set_cfg(CFG_THEME);
-	al_add_config_section(config, "Style");
-	al_add_config_section(config, "Color");
-	al_add_config_comment(config, "Color", "Colors given as 0xRRGGBBAA");
-	set_config_dbl("Style", "fill_radiobubbles", 0.6);
-	set_config_dbl("Style", "fill_cboxes", 0.6);
-	set_config_col("Color", "Background", C_LGRAY);
-	set_cfg(CFG_ROOT);
-}
 void default_configs() // Resets configs to default
 {
+	ConfigStash stash;
+	
 	set_cfg(CFG_ROOT);
 	set_config_dbl("GUI", "start_scale", 2.0);
-	default_theme();
+	Theme::reset();
 }
 void refresh_configs() // Uses values in the loaded configs to change the program
 {
+	ConfigStash stash;
+	
 	bool wrote_any = false;
 	bool b;
 	#define DBL_BOUND(var, low, high, sec, key) \
@@ -469,33 +462,12 @@ void refresh_configs() // Uses values in the loaded configs to change the progra
 	set_cfg(CFG_THEME);
 	DBL_BOUND(RadioButton::fill_sel,0.5,1.0,"Style", "fill_radiobubbles")
 	DBL_BOUND(CheckBox::fill_sel,0.5,1.0,"Style", "fill_cboxes")
-	if(auto c = get_config_col("Color", "Background"))
-		C_BG = *c;
+	Theme::read_palette();
 	set_cfg(CFG_ROOT);
 	
 	if(wrote_any)
 		save_cfg();
 	#undef DBL_BOUND
-}
-void load_cfg() // Loads configs from file
-{
-	if(ALLEGRO_CONFIG* cfg = al_load_config_file("APSudoku.cfg"))
-	{
-		al_merge_config_into(configs[CFG_ROOT], cfg);
-		al_destroy_config(cfg);
-	}
-	if(ALLEGRO_CONFIG* cfg = al_load_config_file("Theme.cfg"))
-	{
-		al_merge_config_into(configs[CFG_THEME], cfg);
-		al_destroy_config(cfg);
-	}
-}
-void save_cfg() // Saves the configs to file
-{
-	if(!al_save_config_file("APSudoku.cfg", configs[CFG_ROOT]))
-		error("Failed to save config file! Settings may not be savable!");
-	if(!al_save_config_file("Theme.cfg", configs[CFG_THEME]))
-		error("Failed to save theme file! Theme may not be savable!");
 }
 void setup_allegro()
 {
@@ -516,10 +488,10 @@ void setup_allegro()
 	
 	configs[CFG_ROOT] = al_create_config();
 	configs[CFG_THEME] = al_create_config();
+	set_cfg(CFG_ROOT);
 	default_configs();
 	load_cfg();
 	save_cfg();
-	set_cfg(CFG_ROOT);
 	
 	double start_scale = get_config_dbl("GUI", "start_scale").value_or(2.0);
 	

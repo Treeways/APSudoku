@@ -13,6 +13,18 @@ extern ALLEGRO_CONFIG* configs[NUM_CFGS];
 extern ALLEGRO_CONFIG* config;
 void set_cfg(Config c);
 
+void load_cfg();
+void load_cfg(Config c);
+void save_cfg();
+void save_cfg(Config c);
+
+struct ConfigStash
+{
+	Config val;
+	ConfigStash();
+	~ConfigStash();
+};
+
 void set_config_bool(char const* sec, char const* key, bool val);
 optional<bool> get_config_bool(char const* sec, char const* key);
 
