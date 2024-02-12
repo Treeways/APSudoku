@@ -6,8 +6,6 @@
 #include "Config.hpp"
 #include "SudokuGrid.hpp"
 
-extern ALLEGRO_CONFIG* config;
-
 void log(string const& msg)
 {
 	std::cout << "[LOG] " << msg << std::endl;
@@ -101,7 +99,7 @@ void build_gui()
 		ON_SWAP_BTN(swap_btns[0], SCR_SUDOKU);
 		ON_SWAP_BTN(swap_btns[1], SCR_CONNECT);
 		ON_SWAP_BTN(swap_btns[2], SCR_SETTINGS);
-		shared_ptr<Column> sb_column = make_shared<Column>(BUTTON_X, BUTTON_Y);
+		shared_ptr<Column> sb_column = make_shared<Column>(BUTTON_X, BUTTON_Y, 0, 2, ALLEGRO_ALIGN_CENTER);
 		for(shared_ptr<Button> const& b : swap_btns)
 			sb_column->add(b);
 		
@@ -248,6 +246,37 @@ void build_gui()
 		
 		gui_objects[SCR_SUDOKU].push_back(entry_col);
 	}
+	{ // AP connection
+		shared_ptr<Column> apc = make_shared<Column>(GRID_X, GRID_Y, 0, 8, ALLEGRO_ALIGN_RIGHT);
+		
+		vector<tuple<string,string,
+			std::function<bool(string const&,string const&,char)>>> p = {
+			{"IP:","archipelago.gg", [](string const& o, string const& n, char c)
+				{
+					return validate_alphanum(o,n,c) || c == '.';
+				}},
+			{"Port:","", [](string const& o, string const& n, char c)
+				{
+					return validate_numeric(o,n,c) && n.size() <= 5;
+				}},
+			{"Slot:","",nullptr},
+			{"Passwd:","",nullptr}
+		};
+		for(auto [label,defval,valproc] : p)
+		{
+			shared_ptr<Row> r = make_shared<Row>(0,0,0,4,ALLEGRO_ALIGN_CENTER);
+			
+			shared_ptr<Label> lbl = make_shared<Label>(label, font_l, ALLEGRO_ALIGN_LEFT);
+			shared_ptr<TextField> field = make_shared<TextField>(
+				GRID_X, GRID_Y, 256,
+				defval, FontDef(-22, false, BOLD_NONE));
+			field->onValidate = valproc;
+			r->add(lbl);
+			r->add(field);
+			apc->add(r);
+		}
+		gui_objects[SCR_CONNECT].push_back(apc);
+	}
 }
 
 void dlg_draw()
@@ -303,6 +332,7 @@ void init_grid()
 }
 void setup_allegro();
 bool program_running = true;
+u64 cur_frame = 0;
 void run_events(bool& redraw)
 {
 	ALLEGRO_EVENT ev;
@@ -311,6 +341,8 @@ void run_events(bool& redraw)
 	switch(ev.type)
 	{
 		case ALLEGRO_EVENT_TIMER:
+			++cur_frame;
+		[[fallthrough]];
 		case ALLEGRO_EVENT_MOUSE_BUTTON_DOWN:
 		case ALLEGRO_EVENT_MOUSE_BUTTON_UP:
 			redraw = true;
@@ -406,17 +438,38 @@ void on_resize()
 
 void save_cfg()
 {
-	if(!al_save_config_file("APSudoku.cfg", config))
+	if(!al_save_config_file("APSudoku.cfg", configs[CFG_ROOT]))
 		error("Failed to save config file! Settings may not be savable!");
+	if(!al_save_config_file("Theme.cfg", configs[CFG_THEME]))
+		error("Failed to save theme file! Theme may not be savable!");
 }
-void default_config()
+void default_theme()
 {
-	set_config_col("Test", "BGC", C_LGRAY);
+	set_cfg(CFG_THEME);
+	al_add_config_section(config, "Style");
+	al_add_config_section(config, "Color");
+	al_add_config_comment(config, "Color", "Colors given as 0xRRGGBBAA");
+	set_config_dbl("Style", "fill_radiobubbles", 0.6);
+	set_config_dbl("Style", "fill_cboxes", 0.6);
+	set_config_col("Color", "Background", C_LGRAY);
+	set_cfg(CFG_ROOT);
+}
+void default_configs()
+{
+	set_cfg(CFG_ROOT);
+	set_config_dbl("GUI", "start_scale", 2.0);
+	default_theme();
 }
 void refresh_configs()
 {
-	if(auto c = get_config_col("Test", "BGC"))
+	set_cfg(CFG_THEME);
+	if(auto d = get_config_dbl("Style", "fill_radiobubbles"))
+		RadioButton::fill_sel = vbound(*d,0.0,1.0);
+	if(auto d = get_config_dbl("Style", "fill_cboxes"))
+		CheckBox::fill_sel = vbound(*d,0.0,1.0);
+	if(auto c = get_config_col("Color", "Background"))
 		C_BG = *c;
+	set_cfg(CFG_ROOT);
 }
 void setup_allegro()
 {
@@ -435,8 +488,26 @@ void setup_allegro()
 	al_install_mouse();
 	al_install_keyboard();
 	
+	configs[CFG_ROOT] = al_create_config();
+	configs[CFG_THEME] = al_create_config();
+	default_configs();
+	if(ALLEGRO_CONFIG* cfg = al_load_config_file("APSudoku.cfg"))
+	{
+		al_merge_config_into(configs[CFG_ROOT], cfg);
+		al_destroy_config(cfg);
+	}
+	if(ALLEGRO_CONFIG* cfg = al_load_config_file("Theme.cfg"))
+	{
+		al_merge_config_into(configs[CFG_THEME], cfg);
+		al_destroy_config(cfg);
+	}
+	save_cfg();
+	set_cfg(CFG_ROOT);
+	
+	double start_scale = get_config_dbl("GUI", "start_scale").value_or(2.0);
+	
 	al_set_new_display_flags(ALLEGRO_RESIZABLE);
-	display = al_create_display(CANVAS_W*2, CANVAS_H*2);
+	display = al_create_display(CANVAS_W*start_scale, CANVAS_H*start_scale);
 	if(!display)
 		fail("Failed to create display!");
 	
@@ -461,14 +532,6 @@ void setup_allegro()
 	al_set_window_constraints(display, CANVAS_W, CANVAS_H, 0, 0);
 	al_apply_window_constraints(display, true);
 	
-	config = al_create_config();
-	default_config();
-	if(ALLEGRO_CONFIG* cfg = al_load_config_file("APSudoku.cfg"))
-	{
-		al_merge_config_into(config, cfg);
-		al_destroy_config(cfg);
-	}
-	save_cfg();
 	refresh_configs();
 	on_resize();
 	init_fonts();

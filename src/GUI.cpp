@@ -10,25 +10,49 @@ ALLEGRO_COLOR
 	, C_CELL_GIVEN = C_BLACK
 	, C_REGION_BORDER = C_BLACK
 	, C_LBL_TEXT = C_BLACK
-	, C_LBL_SHADOW = al_map_rgba(0,0,0,0)
+	, C_LBL_SHADOW = C_TRANS
 	, C_BUTTON_FG = C_BLACK
 	, C_BUTTON_BG = C_WHITE
-	, C_BUTTON_HOVBG = C_LGRAY
+	, C_BUTTON_HOVBG = C_LLGRAY
 	, C_BUTTON_BORDER = C_BLACK
 	, C_BUTTON_DISTXT = C_LGRAY
 	, C_RAD_BG = C_WHITE
-	, C_RAD_HOVBG = C_LGRAY
 	, C_RAD_FG = C_BLACK
 	, C_RAD_DIS_BG = C_LGRAY
 	, C_RAD_DIS_FG = C_DGRAY
+	, C_RAD_HOVBG = C_LLGRAY
 	, C_RAD_BORDER = C_BLACK
-	, C_RAD_TXT = C_LBL_TEXT
+	, C_RAD_TXT = C_BLACK
+	, C_TF_BG = C_WHITE
+	, C_TF_FG = C_BLACK
+	, C_TF_DIS_BG = C_LGRAY
+	, C_TF_DIS_FG = C_DGRAY
+	, C_TF_HOVBG = C_LLGRAY
+	, C_TF_BORDER = C_BLACK
+	, C_TF_CURSOR = C_BLACK
 	, C_HIGHLIGHT = al_map_rgb(76, 164, 255)
 	, C_HIGHLIGHT2 = al_map_rgb(255, 164, 76)
 	;
 InputState* cur_input;
 double render_xscale = 1, render_yscale = 1;
 int render_resx = CANVAS_W, render_resy = CANVAS_H;
+
+void ClipRect::store()
+{
+	al_get_clipping_rectangle(&x, &y, &w, &h);
+}
+void ClipRect::load()
+{
+	al_set_clipping_rectangle(x, y, w, h);
+}
+ClipRect::ClipRect()
+{
+	store();
+}
+void ClipRect::set(int X, int Y, int W, int H)
+{
+	al_set_clipping_rectangle(X,Y,W,H);
+}
 
 void DrawContainer::run()
 {
@@ -47,13 +71,6 @@ void DrawContainer::run()
 	else if(buttons & 0x4)
 		cur_input->buttons |= 0x4;
 	
-	//Mouse coordinates are based on the 'display'
-	//Scale down the x/y before running mouse logic:
-	u16 mx = cur_input->x, my = cur_input->y;
-	unscale_pos(mx,my);
-	cur_input->x = mx;
-	cur_input->y = my;
-	//
 	mouse();
 	
 	cur_input->oldstate = cur_input->buttons;
@@ -201,6 +218,7 @@ bool InputState::unfocus()
 	u32 newret = focused->mouse_event(MOUSE_LOSTFOCUS);
 	if(newret & MRET_TAKEFOCUS)
 		return false;
+	focused = nullptr;
 	return true;
 }
 bool InputState::refocus(InputObject* targ)
@@ -307,13 +325,13 @@ void InputObject::focus()
 	if(cur_input && cur_input->focused != this)
 		cur_input->refocus(this);
 }
-u32 InputObject::handle_ev(MouseEvent ev)
+u32 InputObject::handle_ev(MouseEvent e)
 {
-	return mouse_killfocus(*this, ev);
+	return mouse_killfocus(*this, e);
 }
-u32 InputObject::mouse_event(MouseEvent ev)
+u32 InputObject::mouse_event(MouseEvent e)
 {
-	return onMouse ? onMouse(*this,ev) : handle_ev(ev);
+	return onMouse ? onMouse(*this,e) : handle_ev(e);
 }
 void InputObject::unhover()
 {
@@ -334,6 +352,7 @@ bool InputObject::mouse()
 {
 	auto& m = *cur_input;
 	u16 X = xpos(), Y = ypos(), W = width(), H = height();
+	scale_pos(X,Y,W,H);
 	bool inbounds = (m.x >= X && m.x < X+W) && (m.y >= Y && m.y < Y+H);
 	if(inbounds)
 	{
@@ -513,16 +532,18 @@ void RadioButton::draw() const
 	bool hov = !dis && (flags&FL_HOVERED);
 	u16 CX = x, CY = y;
 	u16 X = x + radius + pad, Y = CY;
-	u16 RAD = radius;
+	u16 RAD = radius, RAD2 = fillrad;
 	scale_pos(CX,CY);
 	scale_pos(X,Y);
 	scale_min(RAD);
+	scale_min(RAD2);
+	RAD2 = RAD*fill_sel;
 	al_draw_filled_circle(CX, CY, RAD+pad/2, C_RAD_BORDER);
 	ALLEGRO_COLOR const& bgc = dis ? C_RAD_DIS_BG : (hov ? C_RAD_HOVBG : C_RAD_BG);
 	ALLEGRO_COLOR const& fgc = dis ? C_RAD_DIS_FG : C_RAD_FG;
 	al_draw_filled_circle(CX, CY, RAD, bgc);
 	if(sel)
-		al_draw_filled_circle(CX, CY, RAD-4, fgc);
+		al_draw_filled_circle(CX, CY, RAD2, fgc);
 	ALLEGRO_FONT* f = font.get();
 	Y = CY - al_get_font_line_height(f) / 2;
 	if(!text.empty())
@@ -562,15 +583,16 @@ u16 RadioButton::height() const
 	ALLEGRO_FONT* f = font.get_base();
 	return std::max(al_get_font_line_height(f), radius*2);
 }
+double RadioButton::fill_sel = 0.5;
 
 // RadioSet
-void RadioSet::init(vector<string>& opts, FontDef fnt, u16 rad)
+void RadioSet::init(vector<string>& opts, FontDef fnt, u16 rad, u16 frad)
 {
 	cont.clear();
 	u16 ind = 0;
 	for(string const& str : opts)
 	{
-		shared_ptr<RadioButton> rb = make_shared<RadioButton>(str, fnt, rad);
+		shared_ptr<RadioButton> rb = make_shared<RadioButton>(str, fnt, rad, frad);
 		add(rb);
 		rb->sel_proc = [this,ind]()
 			{
@@ -610,26 +632,25 @@ void CheckBox::draw() const
 	bool hov = !dis && (flags&FL_HOVERED);
 	u16 CX = x, CY = y;
 	u16 X = x + radius + pad, Y = CY;
-	u16 RAD = radius;
+	u16 RAD = radius, RAD2 = fillrad;
 	scale_pos(CX,CY);
 	scale_pos(X,Y);
 	scale_min(RAD);
-	u16 R = RAD+pad/2;
-	al_draw_filled_rectangle(CX-R, CY-R, CX+R, CY+R, C_RAD_BORDER);
+	scale_min(RAD2);
+	RAD2 = RAD*fill_sel;
+	u16 BRAD = RAD+pad/2;
+	al_draw_filled_rectangle(CX-BRAD, CY-BRAD, CX+BRAD, CY+BRAD, C_RAD_BORDER);
 	ALLEGRO_COLOR const& bgc = dis ? C_RAD_DIS_BG : (hov ? C_RAD_HOVBG : C_RAD_BG);
 	ALLEGRO_COLOR const& fgc = dis ? C_RAD_DIS_FG : C_RAD_FG;
-	R = RAD;
-	al_draw_filled_rectangle(CX-R, CY-R, CX+R, CY+R, bgc);
+	al_draw_filled_rectangle(CX-RAD, CY-RAD, CX+RAD, CY+RAD, bgc);
 	if(sel)
-	{
-		R = RAD-4;
-		al_draw_filled_rectangle(CX-R, CY-R, CX+R, CY+R, fgc);
-	}
+		al_draw_filled_rectangle(CX-RAD2, CY-RAD2, CX+RAD2, CY+RAD2, fgc);
 	ALLEGRO_FONT* f = font.get();
 	Y = CY - al_get_font_line_height(f) / 2;
 	if(!text.empty())
 		al_draw_text(f, C_RAD_TXT, X, Y, ALLEGRO_ALIGN_LEFT, text.c_str());
 }
+double CheckBox::fill_sel = 0.5;
 
 // Button
 void Button::draw() const
@@ -765,12 +786,160 @@ Label::Label(string const& txt, u16 X, u16 Y, FontDef fd, i8 al)
 	: InputObject(X,Y), text(txt), align(al), font(fd)
 {}
 
+bool blinkrate(u64 clk, u64 rate)
+{
+	return (clk % rate) < (rate / 2);
+}
+// TextField
+void TextField::draw() const
+{
+	u16 X = x, Y = y, W = w, H = height();
+	u16 HPAD = pad, VPAD = pad;
+	scale_pos(X,Y,W,H);
+	scale_pos(HPAD,VPAD);
+	bool dis = disabled();
+	bool foc = !dis && focused();
+	bool hov = !dis && (flags&FL_HOVERED);
+	
+	ClipRect clip;
+	
+	ALLEGRO_FONT* f = font.get();
+	ALLEGRO_COLOR const& bg = dis ? C_TF_DIS_BG : (hov ? C_TF_HOVBG : C_TF_BG);
+	ALLEGRO_COLOR const& fg = dis ? C_TF_DIS_FG : C_TF_FG;
+	al_draw_rectangle(X,Y,X+W-1,Y+H-1,C_TF_BORDER,2);
+	al_draw_filled_rectangle(X,Y,X+W-1,Y+H-1,bg);
+	
+	ClipRect::set(X,Y,W,H);
+	
+	if(!content.empty())
+		al_draw_text(f, fg, X+HPAD, Y+VPAD, ALLEGRO_ALIGN_LEFT, content.c_str());
+	if(foc && cpos <= content.size() && blinkrate(cur_frame,60)) //typing cursor
+	{
+		string tmp = content.substr(0,cpos);
+		u16 subw = al_get_text_width(f,tmp.c_str());
+		auto lx = X+HPAD+subw+1;
+		al_draw_line(lx, Y+VPAD, lx, Y+H-VPAD, C_TF_CURSOR, 0);
+	}
+	
+	clip.load();
+}
+u16 TextField::height() const
+{
+	ALLEGRO_FONT* f = font.get_base();
+	return (2*pad) + (f ? al_get_font_line_height(f) : 0);
+}
+bool TextField::validate(string const& ostr, string const& nstr, char c)
+{
+	static const u16 MAX_STR = 9999;
+	if(nstr.size() > MAX_STR)
+		return false;
+	if(onValidate)
+		return onValidate(ostr, nstr, c);
+	return true;
+}
+u32 TextField::handle_ev(MouseEvent e)
+{
+	switch(e)
+	{
+		case MOUSE_LCLICK:
+		{
+			u16 X = x+pad, Y = y+pad, W = w, H = height()-2*pad;
+			scale_pos(X,Y,W,H);
+			ALLEGRO_FONT* f = font.get();
+			u16 ind;
+			char buf[2] = {0,0};
+			auto mx = cur_input->x;
+			for(ind = 0; ind < content.size(); ++ind)
+			{
+				buf[0] = content[ind];
+				auto cw = al_get_text_width(f, buf);
+				if(mx < X+cw/2)
+					break;
+				X += cw;
+			}
+			cpos = ind;
+			return MRET_TAKEFOCUS;
+		}
+		case MOUSE_HOVER_ENTER:
+			flags |= FL_HOVERED;
+			break;
+		case MOUSE_HOVER_EXIT:
+			flags &= ~FL_HOVERED;
+			break;
+	}
+	return MRET_OK;
+}
+void TextField::key_event(ALLEGRO_EVENT const& ev)
+{
+	switch(ev.type)
+	{
+		case ALLEGRO_EVENT_KEY_CHAR:
+		{
+			switch(ev.keyboard.keycode)
+			{
+				case ALLEGRO_KEY_LEFT:
+					if(cpos > 0)
+						--cpos;
+					break;
+				case ALLEGRO_KEY_RIGHT:
+					if(cpos < content.size())
+						++cpos;
+					break;
+				case ALLEGRO_KEY_BACKSPACE:
+					if(cpos > 0)
+					{
+						content = content.substr(0,cpos-1) + content.substr(cpos);
+						--cpos;
+					}
+					break;
+				case ALLEGRO_KEY_DELETE:
+					if(cpos < content.size())
+					{
+						content = content.substr(0,cpos) + content.substr(cpos+1);
+						++cpos;
+					}
+					break;
+				default:
+				{
+					char c = char(ev.keyboard.unichar);
+					if(c != ev.keyboard.unichar)
+						break; //out-of-range character
+					string nc = content.substr(0,cpos) + c + content.substr(cpos);
+					if(validate(content,nc,c))
+					{
+						content = nc;
+						++cpos;
+					}
+					break;
+				}
+			}
+			break;
+		}
+	}
+}
+
 //COMMON EVENT FUNCS
 u32 mouse_killfocus(InputObject& ref,MouseEvent e)
 {
 	if(e == MOUSE_LCLICK)
 		cur_input->unfocus();
 	return MRET_OK;
+}
+bool validate_numeric(string const& ostr, string const& nstr, char c)
+{
+	return c >= '0' && c <= '9';
+}
+bool validate_float(string const& ostr, string const& nstr, char c)
+{
+	if(c == '.')
+		return ostr.find_first_of(".") == string::npos;
+	return validate_numeric(ostr,nstr,c);
+}
+bool validate_alphanum(string const& ostr, string const& nstr, char c)
+{
+	return (c >= '0' && c <= '9')
+		|| (c >= 'a' && c <= 'z')
+		|| (c >= 'A' && c <= 'Z');
 }
 
 //POPUPS

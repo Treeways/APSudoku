@@ -7,6 +7,7 @@ inline ALLEGRO_COLOR
 	, C_WHITE = al_map_rgb(255,255,255)
 	, C_BLACK = al_map_rgb(0,0,0)
 	, C_BLUE = al_map_rgb(30, 107, 229)
+	, C_LLGRAY = al_map_rgb(224, 224, 224)
 	, C_LGRAY = al_map_rgb(192, 192, 192)
 	, C_MGRAY = al_map_rgb(128, 128, 128)
 	, C_DGRAY = al_map_rgb(64, 64, 64)
@@ -32,11 +33,27 @@ extern ALLEGRO_COLOR
 	, C_RAD_DIS_FG
 	, C_RAD_BORDER
 	, C_RAD_TXT
+	, C_TF_BG
+	, C_TF_FG
+	, C_TF_DIS_BG
+	, C_TF_DIS_FG
+	, C_TF_HOVBG
+	, C_TF_BORDER
+	, C_TF_CURSOR
 	, C_HIGHLIGHT
 	, C_HIGHLIGHT2
 	;
 extern double render_xscale, render_yscale;
 extern int render_resx, render_resy;
+
+struct ClipRect
+{
+	int x,y,w,h;
+	void store();
+	void load();
+	ClipRect();
+	static void set(int X, int Y, int W, int H);
+};
 
 struct InputObject;
 struct GUIObject;
@@ -209,8 +226,8 @@ struct Column : public DrawWrapper
 	virtual u16 width() const override;
 	virtual u16 height() const override;
 	virtual void add(shared_ptr<GUIObject> obj) override;
-	Column() : padding(4), spacing(2), align(ALLEGRO_ALIGN_CENTRE) {};
-	Column(u16 X, u16 Y, u16 padding = 4,
+	Column() : padding(0), spacing(2), align(ALLEGRO_ALIGN_CENTRE) {};
+	Column(u16 X, u16 Y, u16 padding = 0,
 		u16 spacing = 2, i8 align = ALLEGRO_ALIGN_CENTRE);
 };
 struct Row : public DrawWrapper
@@ -228,10 +245,11 @@ struct Row : public DrawWrapper
 
 struct RadioButton : public InputObject
 {
-	u16 radius;
+	u16 radius, fillrad;
 	string text;
 	FontDef font;
 	static const u16 pad = 4;
+	static double fill_sel;
 	
 	virtual void draw() const override;
 	virtual u16 xpos() const override;
@@ -239,32 +257,32 @@ struct RadioButton : public InputObject
 	virtual u16 width() const override;
 	virtual u16 height() const override;
 	RadioButton() : text(), font(FontDef(-20, false, BOLD_NONE)),
-		radius(4)
+		radius(4), fillrad(2)
 	{}
-	RadioButton(string const& txt, FontDef fnt, u16 rad = 4)
-		: radius(rad), text(txt), font(fnt)
+	RadioButton(string const& txt, FontDef fnt, u16 rad = 4, u16 frad = 2)
+		: radius(rad), fillrad(frad), text(txt), font(fnt)
 	{}
-	RadioButton(u16 X, u16 Y, string const& txt, FontDef fnt, u16 rad = 4)
-		: InputObject(X,Y), radius(rad), text(txt), font(fnt)
+	RadioButton(u16 X, u16 Y, string const& txt, FontDef fnt, u16 rad = 4, u16 frad = 2)
+		: InputObject(X,Y), radius(rad), fillrad(frad), text(txt), font(fnt)
 	{}
 	
 	u32 handle_ev(MouseEvent ev) override;
 };
 struct RadioSet : public Column
 {
-	RadioSet(vector<string> opts, FontDef fnt, u16 rad = 4)
+	RadioSet(vector<string> opts, FontDef fnt, u16 rad = 4, u16 frad = 2)
 		: Column(0,0,0,2,ALLEGRO_ALIGN_LEFT)
 	{
-		init(opts, fnt, rad);
+		init(opts, fnt, rad, frad);
 		realign();
 	}
 	RadioSet(std::function<optional<u8>()> getter,
 		std::function<void(optional<u8>)> setter,
-		vector<string> opts, FontDef fnt, u16 rad = 4)
+		vector<string> opts, FontDef fnt, u16 rad = 4, u16 frad = 2)
 		: Column(0,0,0,2,ALLEGRO_ALIGN_LEFT),
 		get_sel_proc(getter), set_sel_proc(setter)
 	{
-		init(opts, fnt, rad);
+		init(opts, fnt, rad, frad);
 		realign();
 	}
 	optional<u16> get_sel() const;
@@ -273,17 +291,18 @@ private:
 	optional<u16> sel_ind;
 	std::function<optional<u8>()> get_sel_proc;
 	std::function<void(optional<u8>)> set_sel_proc;
-	void init(vector<string>& opts, FontDef fnt, u16 rad);
+	void init(vector<string>& opts, FontDef fnt, u16 rad, u16 frad);
 };
 struct CheckBox : public RadioButton
 {
+	static double fill_sel;
 	virtual void draw() const override;
 	CheckBox() : RadioButton() {}
-	CheckBox(string const& txt, FontDef fnt, u16 rad = 4)
-		: RadioButton(txt,fnt,rad)
+	CheckBox(string const& txt, FontDef fnt, u16 rad = 4, u16 frad = 2)
+		: RadioButton(txt,fnt,rad,frad)
 	{}
-	CheckBox(u16 X, u16 Y, string const& txt, FontDef fnt, u16 rad = 4)
-		: RadioButton(X,Y,txt,fnt,rad)
+	CheckBox(u16 X, u16 Y, string const& txt, FontDef fnt, u16 rad = 4, u16 frad = 2)
+		: RadioButton(X,Y,txt,fnt,rad,frad)
 	{}
 };
 
@@ -336,8 +355,39 @@ struct Label : public InputObject
 	Label(string const& txt, u16 X, u16 Y, FontDef fd, i8 align = ALLEGRO_ALIGN_CENTRE);
 };
 
-u32 mouse_killfocus(InputObject& ref,MouseEvent e);
+struct TextField : public InputObject
+{
+	string content;
+	FontDef font;
+	u16 cpos;
+	static const u16 pad = 2;
+	std::function<bool(string const&,string const&,char)> onValidate;
+	
+	void draw() const override;
+	u16 height() const override;
+	
+	TextField() : InputObject(0,0,64,0), content(),
+		font(FontDef(-20, false, BOLD_NONE))
+	{}
+	TextField(string const& txt) : InputObject(0,0,64,0), content(txt),
+		font(FontDef(-20, false, BOLD_NONE))
+	{}
+	TextField(string const& txt, FontDef fd)
+		: InputObject(0,0,64,0), content(txt), font(fd)
+	{}
+	TextField(u16 X, u16 Y, u16 W, string const& txt, FontDef fd)
+		: InputObject(X,Y,W,0), content(txt), font(fd)
+	{}
+	
+	bool validate(string const& ostr, string const& nstr, char c);
+	u32 handle_ev(MouseEvent ev) override;
+	void key_event(ALLEGRO_EVENT const& ev) override;
+};
 
+u32 mouse_killfocus(InputObject& ref,MouseEvent e);
+bool validate_numeric(string const& ostr, string const& nstr, char c);
+bool validate_float(string const& ostr, string const& nstr, char c);
+bool validate_alphanum(string const& ostr, string const& nstr, char c);
 
 bool pop_okc(string const& title, string const& msg);
 bool pop_yn(string const& title, string const& msg);

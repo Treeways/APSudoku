@@ -274,8 +274,10 @@ namespace Sudoku
 	}
 	Cell* Grid::get_hov()
 	{
-		u8 col = (cur_input->x - x) / CELL_SZ;
-		u8 row = (cur_input->y - y) / CELL_SZ;
+		u16 X = x, Y = y, W = CELL_SZ, H = CELL_SZ;
+		scale_pos(X,Y,W,H);
+		u8 col = (cur_input->x - X) / W;
+		u8 row = (cur_input->y - Y) / H;
 		return get(row,col);
 	}
 	optional<u8> Grid::find(Cell* c)

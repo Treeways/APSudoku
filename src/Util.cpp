@@ -5,7 +5,7 @@ u32 col_to_hex(ALLEGRO_COLOR const& c)
 {
 	u8 r,g,b,a;
 	al_unmap_rgba(c, &r,&g,&b,&a);
-	return (r<<24)|(g<<16)|(b<<8)|(a<<0);
+	return rgba_to_hex(r,g,b,a);
 }
 u32 col_to_hex(ALLEGRO_COLOR const* c)
 {
@@ -19,3 +19,12 @@ ALLEGRO_COLOR hex_to_col(u32 val)
 	u8 a = (val>>0)&0xFF;
 	return al_map_rgba(r,g,b,a);
 }
+u32 rgb_to_hex(u8 r, u8 g, u8 b)
+{
+	return rgba_to_hex(r,g,b,0);
+}
+u32 rgba_to_hex(u8 r, u8 g, u8 b, u8 a)
+{
+	return (r<<24)|(g<<16)|(b<<8)|(a<<0);
+}
+
