@@ -236,6 +236,15 @@ void build_gui()
 		entry_mode->select(ENT_ANSWER);
 		entry_mode->dis_proc = [](){return grid->focused() && mode_mod();};
 		entry_col->add(entry_mode);
+		entry_mode->onMouse = [](InputObject& ref,MouseEvent e)
+			{
+				if(e == MOUSE_GOTFOCUS)
+				{
+					grid->focus();
+					return MRET_OK;
+				}
+				return ref.handle_ev(e);
+			};
 		
 		gui_objects[SCR_SUDOKU].push_back(entry_col);
 	}

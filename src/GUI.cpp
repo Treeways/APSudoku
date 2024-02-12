@@ -209,7 +209,10 @@ bool InputState::refocus(InputObject* targ)
 	bool ret = unfocus();
 	new_focus = nullptr;
 	if(ret)
+	{
 		focused = targ;
+		targ->mouse_event(MOUSE_GOTFOCUS);
+	}
 	return ret;
 }
 
