@@ -43,6 +43,8 @@ struct GUIObject;
 struct InputObject;
 struct DrawContainer;
 
+extern ALLEGRO_DISPLAY* display;
+
 extern vector<DrawContainer*> popups;
 extern u64 cur_frame;
 

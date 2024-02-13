@@ -504,6 +504,7 @@ namespace Sudoku
 			case ALLEGRO_EVENT_KEY_CHAR:
 				break;
 		}
+		InputObject::key_event(ev);
 	}
 	
 	void Grid::deselect()

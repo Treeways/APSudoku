@@ -336,6 +336,12 @@ void build_gui()
 			ap_fields.push_back(field);
 			apc->add(r);
 		}
+		if(!ap_fields.empty())
+		{
+			for(size_t q = 0; q < ap_fields.size()-1; ++q)
+				ap_fields[q]->tab_target = ap_fields[q+1].get();
+			ap_fields.back()->tab_target = ap_fields.front().get();
+		}
 		gui_objects[SCR_CONNECT].push_back(apc);
 		
 		deathlink_cbox = make_shared<CheckBox>("DeathLink", font_l);

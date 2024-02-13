@@ -321,6 +321,11 @@ void InputObject::focus()
 	if(cur_input && cur_input->focused != this)
 		cur_input->refocus(this);
 }
+void InputObject::key_event(ALLEGRO_EVENT const& ev)
+{
+	if(tab_target && ev.type == ALLEGRO_EVENT_KEY_DOWN && ev.keyboard.keycode == ALLEGRO_KEY_TAB)
+		tab_target->focus();
+}
 u32 InputObject::handle_ev(MouseEvent e)
 {
 	return mouse_killfocus(*this, e);
@@ -920,10 +925,39 @@ string TextField::get_str() const
 	return content;
 }
 
+static bool badchar(char c)
+{
+	switch(c)
+	{
+		case '\t':
+		case '\r':
+		case '\n':
+			return true;
+	}
+	return false;
+}
+bool TextField::validate(string& pastestr)
+{
+	string b = before_sel(), a = after_sel();
+	string p;
+	bool ret = false;
+	for(char c : pastestr)
+	{
+		if(validate(content,b+p+c+a,c))
+		{
+			p += c;
+			ret = true;
+		}
+	}
+	pastestr = p;
+	return ret;
+}
 bool TextField::validate(string const& ostr, string const& nstr, char c)
 {
 	static const u16 MAX_STR = 9999;
 	if(nstr.size() > MAX_STR)
+		return false;
+	if(badchar(c))
 		return false;
 	if(onValidate)
 		return onValidate(ostr, nstr, c);
@@ -967,6 +1001,7 @@ void TextField::key_event(ALLEGRO_EVENT const& ev)
 	{
 		case ALLEGRO_EVENT_KEY_CHAR:
 		{
+			bool is_char = false;
 			switch(ev.keyboard.keycode)
 			{
 				case ALLEGRO_KEY_LEFT:
@@ -976,6 +1011,12 @@ void TextField::key_event(ALLEGRO_EVENT const& ev)
 				case ALLEGRO_KEY_RIGHT:
 					if(cpos < content.size())
 						++cpos;
+					break;
+				case ALLEGRO_KEY_HOME:
+					cpos = 0;
+					break;
+				case ALLEGRO_KEY_END:
+					cpos = content.size();
 					break;
 				case ALLEGRO_KEY_BACKSPACE:
 					if(cpos > 0)
@@ -988,26 +1029,73 @@ void TextField::key_event(ALLEGRO_EVENT const& ev)
 					if(cpos < content.size())
 					{
 						content = content.substr(0,cpos) + content.substr(cpos+1);
-						++cpos;
 					}
+					break;
+				case ALLEGRO_KEY_V:
+					if(cur_input->ctrl_cmd())
+						paste();
+					else is_char = true;
+					break;
+				case ALLEGRO_KEY_C:
+					if(cur_input->ctrl_cmd())
+						copy();
+					else is_char = true;
 					break;
 				default:
-				{
-					char c = char(ev.keyboard.unichar);
-					if(c != ev.keyboard.unichar)
-						break; //out-of-range character
-					string nc = content.substr(0,cpos) + c + content.substr(cpos);
-					if(validate(content,nc,c))
-					{
-						content = nc;
-						++cpos;
-					}
+					is_char = true;
 					break;
+			}
+			if(is_char)
+			{
+				char c = char(ev.keyboard.unichar);
+				if(c != ev.keyboard.unichar)
+					break; //out-of-range character
+				if(badchar(c))
+					break;
+				
+				string nc = content.substr(0,cpos) + c + content.substr(cpos);
+				if(validate(content,nc,c))
+				{
+					content = nc;
+					++cpos;
 				}
 			}
 			break;
 		}
 	}
+	InputObject::key_event(ev);
+}
+
+void TextField::copy()
+{
+	//!!TODO add string selection and allow copying
+}
+void TextField::paste()
+{
+	char* str = al_get_clipboard_text(display);
+	if(str)
+	{
+		string s(str);
+		if(validate(s))
+		{
+			content = before_sel() + s + after_sel();
+			cpos += s.size();
+		}
+		
+		al_free(str);
+	}
+}
+string TextField::before_sel() const
+{
+	return content.substr(0,cpos+1);
+}
+string TextField::in_sel() const
+{
+	return "";
+}
+string TextField::after_sel() const
+{
+	return content.substr(cpos);
 }
 
 //COMMON EVENT FUNCS

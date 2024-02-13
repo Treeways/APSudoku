@@ -157,6 +157,7 @@ struct InputObject : public GUIObject
 {
 	u16 x, y, w, h;
 	u8 mouseflags;
+	InputObject* tab_target;
 	std::function<u32(InputObject&,MouseEvent)> onMouse;
 	virtual bool mouse() override;
 	virtual u16 xpos() const override {return x;}
@@ -167,14 +168,18 @@ struct InputObject : public GUIObject
 	virtual u16 height() const override {return h;}
 	virtual u32 handle_ev(MouseEvent ev);
 	virtual void focus() override;
+	virtual void key_event(ALLEGRO_EVENT const& ev) override;
 	u32 mouse_event(MouseEvent ev);
 	void unhover();
 	InputObject()
-		: GUIObject(), x(0), y(0), w(0), h(0), mouseflags(0), onMouse() {}
+		: GUIObject(), x(0), y(0), w(0), h(0),
+		mouseflags(0), onMouse(), tab_target(nullptr) {}
 	InputObject(u16 x, u16 y)
-		: GUIObject(), x(x), y(y), w(0), h(0), mouseflags(0), onMouse() {}
+		: GUIObject(), x(x), y(y), w(0), h(0),
+		mouseflags(0), onMouse(), tab_target(nullptr) {}
 	InputObject(u16 x, u16 y, u16 w, u16 h)
-		: GUIObject(), x(x), y(y), w(w), h(h), mouseflags(0), onMouse() {}
+		: GUIObject(), x(x), y(y), w(w), h(h),
+		mouseflags(0), onMouse(), tab_target(nullptr) {}
 private:
 	void process(u32 retcode);
 };
@@ -371,21 +376,28 @@ struct TextField : public InputObject
 	string get_str() const;
 	
 	TextField() : InputObject(0,0,64,0), content(),
-		font(FontDef(-20, false, BOLD_NONE))
+		font(FontDef(-20, false, BOLD_NONE)), cpos(0)
 	{}
 	TextField(string const& txt) : InputObject(0,0,64,0), content(txt),
-		font(FontDef(-20, false, BOLD_NONE))
+		font(FontDef(-20, false, BOLD_NONE)), cpos(0)
 	{}
 	TextField(string const& txt, FontDef fd)
-		: InputObject(0,0,64,0), content(txt), font(fd)
+		: InputObject(0,0,64,0), content(txt), font(fd), cpos(0)
 	{}
 	TextField(u16 X, u16 Y, u16 W, string const& txt, FontDef fd)
-		: InputObject(X,Y,W,0), content(txt), font(fd)
+		: InputObject(X,Y,W,0), content(txt), font(fd), cpos(0)
 	{}
 	
 	bool validate(string const& ostr, string const& nstr, char c);
 	u32 handle_ev(MouseEvent ev) override;
 	void key_event(ALLEGRO_EVENT const& ev) override;
+private:
+	bool validate(string& pastestr);
+	void paste();
+	void copy();
+	string before_sel() const;
+	string in_sel() const;
+	string after_sel() const;
 };
 
 u32 mouse_killfocus(InputObject& ref,MouseEvent e);
