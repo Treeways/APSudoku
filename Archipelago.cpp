@@ -37,6 +37,7 @@ std::string ap_ip;
 std::string ap_game;
 std::string ap_passwd;
 std::uint64_t ap_uuid = 0;
+std::set<std::string> ap_tags;
 std::mt19937 rando;
 AP_NetworkVersion client_version = {0,2,6}; // Default for compatibility reasons
 
@@ -44,6 +45,7 @@ AP_NetworkVersion client_version = {0,2,6}; // Default for compatibility reasons
 bool deathlinkstat = false;
 bool deathlinksupported = false;
 bool enable_deathlink = false;
+bool force_deathlink = false; //enable it regardless of slot data
 int deathlink_amnesty = 0;
 int cur_deathlink_amnesty = 0;
 
@@ -106,9 +108,46 @@ std::string getLocationName(std::string game, int64_t id);
 void parseDataPkg(Json::Value new_datapkg);
 void parseDataPkg();
 AP_NetworkPlayer getPlayer(int team, int slot);
+bool useDeathlink();
+void updateAPTags();
 // PRIV Func Declarations End
 
+void AP_Disconnect() { //Disconnect from a slot, call AP_Init again to reconnect
+    init = false;
+    auth = false;
+    refused = false;
+    multiworld = true;
+    enable_deathlink = false;
+    webSocket.stop();
+    messageQueue.clear();
+    map_players.clear();
+    map_location_id_name.clear();
+    map_item_id_name.clear();
+    slotdata_strings.clear();
+}
+void AP_SetTags(std::set<std::string> tags) { //Set the slot's tags
+    if(useDeathlink())
+        tags.insert("DeathLink");
+    else tags.erase("DeathLink");
+    if(tags == ap_tags)
+        return;
+    ap_tags = tags;
+    updateAPTags();
+}
+std::set<std::string> const& AP_GetTags() {
+    return ap_tags;
+}
+void AP_SetDeathLinkForced(bool forced) { //Set if DeathLink is *forced* on, or not.
+    if(force_deathlink == forced)
+        return; //unchanged
+    force_deathlink = forced;
+    if(ap_tags.contains("DeathLink") == useDeathlink())
+        return; //unchanged
+    AP_SetTags(ap_tags);
+}
+
 void AP_Init(const char* ip, const char* game, const char* player_name, const char* passwd) {
+    if(init) AP_Disconnect();
     multiworld = true;
     
     uint64_t milliseconds_since_epoch = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
@@ -116,9 +155,9 @@ void AP_Init(const char* ip, const char* game, const char* player_name, const ch
 
     if (!strcmp(ip,"")) {
         ip = "archipelago.gg:38281";
-        printf("AP: Using default Server Adress: '%s'\n", ip);
+        printf("AP: Using default Server Address: '%s'\n", ip);
     } else {
-        printf("AP: Using Server Adress: '%s'\n", ip);
+        printf("AP: Using Server Address: '%s'\n", ip);
     }
     ap_ip = ip;
     ap_game = game;
@@ -143,7 +182,11 @@ void AP_Init(const char* ip, const char* game, const char* player_name, const ch
             {
                 printf("AP: Connected to Archipelago\n");
             }
-            else if (msg->type == ix::WebSocketMessageType::Error || msg->type == ix::WebSocketMessageType::Close)
+            else if(msg->type == ix::WebSocketMessageType::Close)
+            {
+                printf("AP: Disconnected\n");
+            }
+            else if (msg->type == ix::WebSocketMessageType::Error)
             {
                 auth = false;
                 for (std::pair<std::string,AP_GetServerDataRequest*> itr : map_server_data) {
@@ -174,6 +217,7 @@ void AP_Init(const char* ip, const char* game, const char* player_name, const ch
 }
 
 void AP_Init(const char* filename) {
+    if(init) AP_Disconnect();
     multiworld = false;
     std::ifstream mwfile(filename);
     reader.parse(mwfile,sp_ap_root);
@@ -330,20 +374,24 @@ void AP_StoryComplete() {
     APSend(writer.write(req_t));
 }
 
-void AP_DeathLinkSend() {
-    if (!enable_deathlink || !multiworld) return;
+bool AP_DeathLinkSend(std::string cause, std::string alias) {
+    if (!init || !useDeathlink() || !multiworld)
+        return false;
     if (cur_deathlink_amnesty > 0) {
         cur_deathlink_amnesty--;
-        return;
+        return false;
     }
     cur_deathlink_amnesty = deathlink_amnesty;
     std::chrono::time_point<std::chrono::system_clock> timestamp = std::chrono::system_clock::now();
     Json::Value req_t;
     req_t[0]["cmd"] = "Bounce";
     req_t[0]["data"]["time"] = std::chrono::duration_cast<std::chrono::seconds>(timestamp.time_since_epoch()).count();
-    req_t[0]["data"]["source"] = ap_player_name; // Name and Shame >:D
+    req_t[0]["data"]["source"] = alias.empty() ? ap_player_name : alias; // Name and Shame >:D
+    if(!cause.empty())
+        req_t[0]["data"]["cause"] = cause;
     req_t[0]["tags"][0] = "DeathLink";
     APSend(writer.write(req_t));
+    return true;
 }
 
 void AP_EnableQueueItemRecvMsgs(bool b) {
@@ -572,6 +620,8 @@ bool parse_response(std::string msg, std::string &request) {
                 req_t[0]["password"] = ap_passwd;
                 req_t[0]["uuid"] = ap_uuid;
                 req_t[0]["tags"] = Json::arrayValue;
+                for(std::string const& tag : ap_tags)
+                    req_t[0]["tags"].append(tag);
                 req_t[0]["version"]["major"] = client_version.major;
                 req_t[0]["version"]["minor"] = client_version.minor;
                 req_t[0]["version"]["build"] = client_version.build;
@@ -634,11 +684,11 @@ bool parse_response(std::string msg, std::string &request) {
             AP_RoomInfo info;
             AP_GetRoomInfo(&info);
             Json::Value req_t = Json::arrayValue;
-            if (enable_deathlink && deathlinksupported) {
-                Json::Value setdeathlink;
-                setdeathlink["cmd"] = "ConnectUpdate";
-                setdeathlink["tags"][0] = "DeathLink";
-                req_t.append(setdeathlink);
+            if (force_deathlink || (enable_deathlink && deathlinksupported)) {
+                if(!ap_tags.contains("DeathLink")) {
+                    ap_tags.insert("DeathLink");
+                    updateAPTags();
+                }
             }
             // Get datapackage for outdated games
             for (std::pair<std::string,std::string> game_pkg : info.datapackage_checksums) {
@@ -901,3 +951,22 @@ std::string getLocationName(std::string game, int64_t id) {
 AP_NetworkPlayer getPlayer(int team, int slot) {
     return map_players[slot];
 }
+
+bool useDeathlink() {
+    return force_deathlink || (enable_deathlink && deathlinksupported);
+}
+
+void updateAPTags() {
+    if(!init) return;
+    Json::Value req_t;
+    Json::Value update_tags;
+    update_tags["cmd"] = "ConnectUpdate";
+    update_tags["tags"] = Json::arrayValue;
+    
+    for(std::string const& tag : ap_tags)
+        update_tags["tags"].append(tag);
+    
+    req_t.append(update_tags);
+    APSend(writer.write(req_t));
+}
+

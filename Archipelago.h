@@ -6,6 +6,10 @@
 #include <cstdint>
 #include <set>
 
+void AP_Disconnect();
+void AP_SetTags(std::set<std::string> tags);
+std::set<std::string> const& AP_GetTags();
+
 void AP_Init(const char*, const char*, const char*, const char*);
 void AP_Init(const char*);
 bool AP_IsInit();
@@ -82,7 +86,8 @@ void AP_StoryComplete();
 
 bool AP_DeathLinkPending();
 void AP_DeathLinkClear();
-void AP_DeathLinkSend();
+bool AP_DeathLinkSend(std::string cause = "", std::string alias = "");
+void AP_SetDeathLinkForced(bool forced);
 
 /* Message Management Types */
 
