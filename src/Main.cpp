@@ -5,7 +5,12 @@
 #include "Font.hpp"
 #include "Config.hpp"
 #include "SudokuGrid.hpp"
+#include "Network.hpp"
 
+void log(string const& hdr, string const& msg)
+{
+	std::cout << "[" << hdr << "] " << msg << std::endl;
+}
 void log(string const& msg)
 {
 	std::cout << "[LOG] " << msg << std::endl;
@@ -47,9 +52,11 @@ shared_ptr<Sudoku::Grid> grid;
 #define BUTTON_X (CANVAS_W-32-96)
 #define BUTTON_Y (32)
 shared_ptr<Button> swap_btns[NUM_SCRS];
-shared_ptr<RadioSet> difficulty;
-shared_ptr<RadioSet> entry_mode;
-
+shared_ptr<RadioSet> difficulty, entry_mode;
+shared_ptr<Label> connect_error;
+shared_ptr<CheckBox> deathlink_cbox;
+shared_ptr<TextField> deathlink_amnesty;
+vector<shared_ptr<TextField>> ap_fields;
 
 Screen curscr = SCR_SUDOKU;
 
@@ -72,6 +79,10 @@ void swap_screen(Screen scr)
 void build_gui()
 {
 	using namespace Sudoku;
+	const int GRID_SZ = CELL_SZ*9+2;
+	const int GRID_X2 = GRID_X+GRID_SZ;
+	const int GRID_Y2 = GRID_Y+GRID_SZ;
+	const int RGRID_X = GRID_X2 + 8;
 	FontDef font_l(-22, false, BOLD_NONE);
 	FontDef font_s(-15,false,BOLD_NONE);
 	{ // BG, to allow 'clicking off'
@@ -82,7 +93,7 @@ void build_gui()
 	}
 	{ // Swap buttons
 		#define ON_SWAP_BTN(b, scr) \
-		b->sel_proc = [](){return curscr == scr;}; \
+		b->sel_proc = [](GUIObject const& ref) -> bool {return curscr == scr;}; \
 		b->onMouse = [](InputObject& ref,MouseEvent e) \
 			{ \
 				switch(e) \
@@ -123,10 +134,38 @@ void build_gui()
 				return ref.handle_ev(e);
 			};
 		gui_objects[SCR_SUDOKU].push_back(grid);
+		
+		shared_ptr<Label> lifecnt = make_shared<Label>("", font_l, ALLEGRO_ALIGN_LEFT);
+		lifecnt->setx(GRID_X);
+		lifecnt->sety(GRID_Y-lifecnt->height()-2);
+		lifecnt->text_proc = [](Label& ref) -> string
+			{
+				return std::format("Lives: {}", AP_GetCurrentDeathAmnesty());
+			};
+		lifecnt->vis_proc = [](GUIObject const& ref) -> bool
+			{
+				return grid->active() && ap_deathlink();
+			};
+		gui_objects[SCR_SUDOKU].push_back(lifecnt);
+		
+		shared_ptr<Label> nogame = make_shared<Label>("", font_l, ALLEGRO_ALIGN_CENTER);
+		nogame->setx(GRID_X + GRID_SZ/2);
+		nogame->sety(GRID_Y-nogame->height()-2);
+		nogame->text_proc = [](Label& ref) -> string
+			{
+				if(grid->active())
+				{
+					ref.type = TYPE_NORMAL;
+					return std::format("Playing: {}", *difficulty->get_sel_text());
+				}
+				else
+				{
+					ref.type = TYPE_ERROR;
+					return "No Active Game";
+				}
+			};
+		gui_objects[SCR_SUDOKU].push_back(nogame);
 	}
-	const int GRID_X2 = GRID_X+(CELL_SZ*9)+2;
-	const int GRID_Y2 = GRID_Y+(CELL_SZ*9)+2;
-	const int RGRID_X = GRID_X2 + 8;
 	{ // Difficulty / game buttons
 		shared_ptr<Column> diff_column = make_shared<Column>(RGRID_X,GRID_Y,0,2,ALLEGRO_ALIGN_LEFT);
 		
@@ -135,7 +174,7 @@ void build_gui()
 		
 		difficulty = make_shared<RadioSet>(
 			[](){return diff;},
-			[](optional<u8> v)
+			[](optional<u16> v)
 			{
 				if(v)
 					diff = Difficulty(*v);
@@ -143,7 +182,7 @@ void build_gui()
 			vector<string>({"Easy","Normal","Hard"}),
 			FontDef(-20, false, BOLD_NONE));
 		difficulty->select(1);
-		difficulty->dis_proc = []()
+		difficulty->dis_proc = [](GUIObject const& ref) -> bool
 			{
 				return grid->active();
 			};
@@ -156,12 +195,19 @@ void build_gui()
 				switch(e)
 				{
 					case MOUSE_LCLICK:
+						if(!ap_connected())
+						{
+							if(!pop_yn("Start Unconnected?",
+								"Start a puzzle while not connected to Archipelago?"
+								"\nNo hints will be earnable."))
+								return MRET_OK;
+						}
 						grid->generate(diff);
 						break;
 				}
 				return ref.handle_ev(e);
 			};
-		start_btn->dis_proc = []()
+		start_btn->dis_proc = [](GUIObject const& ref) -> bool
 			{
 				return grid->active();
 			};
@@ -173,13 +219,17 @@ void build_gui()
 				switch(e)
 				{
 					case MOUSE_LCLICK:
-						if(pop_yn("Forfeit", "Quit solving this puzzle?"))
+						if(pop_yn("Forfeit", "Quit solving this puzzle?"
+								+ string(ap_deathlink()?"\nThis will count as a DeathLink death!":"")))
+						{
+							do_ap_death("quit a sudoku puzzle!");
 							grid->clear();
+						}
 						break;
 				}
 				return ref.handle_ev(e);
 			};
-		forfeit_btn->dis_proc = []()
+		forfeit_btn->dis_proc = [](GUIObject const& ref) -> bool
 			{
 				return !grid->active();
 			};
@@ -198,16 +248,21 @@ void build_gui()
 							pop_inf("Correct","Puzzle solved correctly! WIP!");
 							grid->exit();
 						}
-						else pop_inf("Wrong", "Puzzle solution incorrect!");
+						else
+						{
+							pop_inf("Wrong", "Puzzle solution incorrect!");
+							if(do_ap_death("solved a sudoku wrong!"))
+								grid->exit();
+						}
 						break;
 				}
 				return ref.handle_ev(e);
 			};
-		check_btn->dis_proc = []()
+		check_btn->dis_proc = [](GUIObject const& ref) -> bool
 			{
 				return !grid->active();
 			};
-		diff_column->ypos(GRID_Y2-diff_column->height());
+		diff_column->sety(GRID_Y2-diff_column->height());
 		diff_column->realign();
 		gui_objects[SCR_SUDOKU].push_back(diff_column);
 	}
@@ -224,7 +279,7 @@ void build_gui()
 					return get_mode();
 				return mode;
 			},
-			[](optional<u8> v)
+			[](optional<u16> v)
 			{
 				if(v)
 					mode = EntryMode(*v);
@@ -232,7 +287,7 @@ void build_gui()
 			vector<string>({"Answer","Center","Corner"}),
 			FontDef(-20, false, BOLD_NONE));
 		entry_mode->select(ENT_ANSWER);
-		entry_mode->dis_proc = [](){return grid->focused() && mode_mod();};
+		entry_mode->dis_proc = [](GUIObject const& ref) -> bool {return grid->focused() && mode_mod();};
 		entry_col->add(entry_mode);
 		entry_mode->onMouse = [](InputObject& ref,MouseEvent e)
 			{
@@ -248,6 +303,10 @@ void build_gui()
 	}
 	{ // AP connection
 		shared_ptr<Column> apc = make_shared<Column>(GRID_X, GRID_Y, 0, 8, ALLEGRO_ALIGN_RIGHT);
+		apc->dis_proc = [](GUIObject const& ref) -> bool
+			{
+				return ap_connected();
+			};
 		
 		vector<tuple<string,string,
 			std::function<bool(string const&,string const&,char)>>> p = {
@@ -255,13 +314,14 @@ void build_gui()
 				{
 					return validate_alphanum(o,n,c) || c == '.';
 				}},
-			{"Port:","", [](string const& o, string const& n, char c)
+			{"Port:","57298", [](string const& o, string const& n, char c)
 				{
 					return validate_numeric(o,n,c) && n.size() <= 5;
 				}},
-			{"Slot:","",nullptr},
+			{"Slot:","EmV",nullptr},
 			{"Passwd:","",nullptr}
 		};
+		ap_fields.clear();
 		for(auto [label,defval,valproc] : p)
 		{
 			shared_ptr<Row> r = make_shared<Row>(0,0,0,4,ALLEGRO_ALIGN_CENTER);
@@ -269,13 +329,156 @@ void build_gui()
 			shared_ptr<Label> lbl = make_shared<Label>(label, font_l, ALLEGRO_ALIGN_LEFT);
 			shared_ptr<TextField> field = make_shared<TextField>(
 				GRID_X, GRID_Y, 256,
-				defval, FontDef(-22, false, BOLD_NONE));
+				defval, font_l);
 			field->onValidate = valproc;
 			r->add(lbl);
 			r->add(field);
+			ap_fields.push_back(field);
 			apc->add(r);
 		}
 		gui_objects[SCR_CONNECT].push_back(apc);
+		
+		deathlink_cbox = make_shared<CheckBox>("DeathLink", font_l);
+		deathlink_cbox->setx(apc->xpos()+apc->width()+4);
+		deathlink_cbox->sety(apc->ypos());
+		deathlink_cbox->dis_proc = [](GUIObject const& ref) -> bool
+			{
+				return ap_connected();
+			};
+		gui_objects[SCR_CONNECT].push_back(deathlink_cbox);
+		
+		shared_ptr<Row> amnesty_row = make_shared<Row>();
+		amnesty_row->setx(deathlink_cbox->xpos());
+		amnesty_row->sety(deathlink_cbox->ypos()+deathlink_cbox->height()+4);
+		
+		shared_ptr<Label> amnesty_lbl = make_shared<Label>("Lives:",font_s);
+		amnesty_row->add(amnesty_lbl);
+		deathlink_amnesty = make_shared<TextField>("0", font_l);
+		deathlink_amnesty->onValidate = validate_numeric;
+		amnesty_row->dis_proc = [](GUIObject const& ref) -> bool
+			{
+				return ap_connected() || !(deathlink_cbox->selected());
+			};
+		amnesty_row->add(deathlink_amnesty);
+		gui_objects[SCR_CONNECT].push_back(amnesty_row);
+		
+		shared_ptr<Switcher> sw = make_shared<Switcher>(
+			[]()
+			{
+				return ap_connected() ? 1 : 0;
+			},
+			[](optional<u16> v){}
+		);
+		shared_ptr<DrawContainer> cont_on = make_shared<DrawContainer>();
+		shared_ptr<DrawContainer> cont_off = make_shared<DrawContainer>();
+		
+		shared_ptr<Button> connect_btn = make_shared<Button>("Connect", font_l);
+		shared_ptr<Button> disconnect_btn = make_shared<Button>("Disconnect", font_l);
+		connect_btn->setx(apc->xpos());
+		connect_btn->sety(apc->ypos() + apc->height() + 4);
+		disconnect_btn->setx(connect_btn->xpos());
+		disconnect_btn->sety(connect_btn->ypos());
+		connect_btn->onMouse = [](InputObject& ref,MouseEvent e)
+			{
+				switch(e)
+				{
+					case MOUSE_LCLICK:
+					{
+						if(grid->active())
+						{
+							if(!pop_yn("Forfeit", "Quit solving current puzzle?"))
+								return MRET_OK;
+							//do_ap_death("quit a sudoku puzzle!");//can't be connected here
+							grid->clear();
+						}
+						ref.flags |= FL_SELECTED;
+						ref.focus();
+						string& errtxt = connect_error->text;
+						do_ap_connect(errtxt, ap_fields[0]->get_str(),
+							ap_fields[1]->get_str(), ap_fields[2]->get_str(),
+							ap_fields[3]->get_str(), deathlink_cbox->selected() ? optional<int>(deathlink_amnesty->get_int()) : nullopt);
+						
+						if(!errtxt.empty())
+							return MRET_OK; //failed, error handled
+						auto status = AP_GetConnectionStatus();
+						
+						optional<u8> ret;
+						bool running = true;
+						
+						Dialog popup;
+						popups.emplace_back(&popup);
+						generate_popup(popup, ret, running, "Please Wait", "Connecting...", {"Cancel"});
+						popup.run_proc = [&running]()
+							{
+								if(!running) //cancelled
+								{
+									do_ap_disconnect();
+									return false;
+								}
+								switch(AP_GetConnectionStatus())
+								{
+									case AP_ConnectionStatus::Disconnected:
+									case AP_ConnectionStatus::Connected:
+										return true;
+								}
+								return false;
+							};
+						popup.run_loop();
+						if(!running)
+							errtxt = "Connection cancelled";
+						else switch(AP_GetConnectionStatus())
+						{
+							case AP_ConnectionStatus::ConnectionRefused:
+								errtxt = "Connection Refused: check your connection details";
+								break;
+						}
+						popups.pop_back();
+						ref.flags &= ~FL_SELECTED;
+						
+						return MRET_OK;
+					}
+				}
+				return ref.handle_ev(e);
+			};
+		disconnect_btn->onMouse = [](InputObject& ref,MouseEvent e)
+			{
+				switch(e)
+				{
+					case MOUSE_LCLICK:
+						if(grid->active())
+						{
+							if(!pop_yn("Forfeit", "Quit solving current puzzle?"
+								+ string(ap_deathlink()?"\nThis will count as a DeathLink death!":"")))
+								return MRET_OK;
+							do_ap_death("quit a sudoku puzzle!");
+							grid->clear();
+						}
+						do_ap_disconnect();
+						return MRET_TAKEFOCUS;
+				}
+				return ref.handle_ev(e);
+			};
+		cont_on->push_back(connect_btn);
+		cont_off->push_back(disconnect_btn);
+		
+		shared_ptr<Label> grid_status = make_shared<Label>(
+			"Currently mid-puzzle! Changing connection requires forfeiting!",
+			font_s, ALLEGRO_ALIGN_LEFT);
+		grid_status->setx(connect_btn->xpos() + connect_btn->width() + 4);
+		grid_status->sety(connect_btn->ypos() + (connect_btn->height() - grid_status->height()) / 2);
+		grid_status->vis_proc = [](GUIObject const& ref) -> bool {return grid->active();};
+		cont_on->push_back(grid_status);
+		cont_off->push_back(grid_status);
+		
+		connect_error = make_shared<Label>("", font_s, ALLEGRO_ALIGN_LEFT);
+		connect_error->setx(connect_btn->xpos());
+		connect_error->sety(connect_btn->ypos() + connect_btn->height());
+		connect_error->type = TYPE_ERROR;
+		cont_on->push_back(connect_error);
+		
+		sw->add(cont_on);
+		sw->add(cont_off);
+		gui_objects[SCR_CONNECT].push_back(sw);
 	}
 }
 
@@ -363,6 +566,8 @@ void run_events(bool& redraw)
 				cur_input->focused->key_event(ev);
 			break;
 	}
+	if(process_remote_deaths())
+		grid->exit();
 }
 bool events_empty()
 {

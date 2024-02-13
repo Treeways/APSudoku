@@ -41,6 +41,7 @@ void DrawContainer::run()
 		cur_input->buttons |= 0x4;
 	
 	mouse();
+	tick();
 	
 	cur_input->oldstate = cur_input->buttons;
 }
@@ -52,6 +53,17 @@ void DrawContainer::draw() const
 		
 		obj->draw_parent = draw_parent;
 		obj->draw();
+		obj->draw_parent = old_parent;
+	}
+}
+void DrawContainer::tick()
+{
+	for(shared_ptr<GUIObject>& obj : *this)
+	{
+		auto old_parent = obj->draw_parent;
+		
+		obj->draw_parent = draw_parent;
+		obj->tick();
 		obj->draw_parent = old_parent;
 	}
 }
@@ -111,6 +123,13 @@ void Dialog::draw() const
 	InputState* old = cur_input;
 	cur_input = &const_cast<Dialog*>(this)->state;
 	DrawContainer::draw();
+	cur_input = old;
+}
+void Dialog::tick()
+{
+	InputState* old = cur_input;
+	cur_input = &state;
+	DrawContainer::tick();
 	cur_input = old;
 }
 bool Dialog::mouse()
@@ -277,12 +296,20 @@ void GUIObject::on_disp_resize()
 bool GUIObject::disabled() const
 {
 	return (flags&FL_DISABLED)
-		|| (dis_proc && dis_proc())
+		|| (dis_proc && dis_proc(*this))
 		|| (draw_parent && draw_parent->disabled());
+}
+bool GUIObject::visible() const
+{
+	if(draw_parent && !draw_parent->visible())
+		return false;
+	if(vis_proc && !vis_proc(*this))
+		return false;
+	return true;
 }
 bool GUIObject::selected() const
 {
-	return sel_proc ? sel_proc() : (flags&FL_SELECTED);
+	return sel_proc ? sel_proc(*this) : (flags&FL_SELECTED);
 }
 bool GUIObject::focused() const
 {
@@ -319,6 +346,7 @@ void InputObject::process(u32 retcode)
 }
 bool InputObject::mouse()
 {
+	if(!visible()) return false;
 	auto& m = *cur_input;
 	u16 X = xpos(), Y = ypos(), W = width(), H = height();
 	scale_pos(X,Y,W,H);
@@ -368,11 +396,19 @@ bool InputObject::mouse()
 // DrawWrapper
 void DrawWrapper::draw() const
 {
+	if(!visible()) return;
 	const_cast<DrawContainer*>(&cont)->draw_parent = this;
 	cont.draw();
 }
+void DrawWrapper::tick()
+{
+	if(!visible()) return;
+	cont.draw_parent = this;
+	cont.tick();
+}
 bool DrawWrapper::mouse()
 {
+	if(!visible()) return false;
 	cont.draw_parent = this;
 	return cont.mouse();
 }
@@ -403,17 +439,17 @@ void Column::realign(size_t start)
 		switch(align)
 		{
 			default:
-				obj->xpos(x+padding);
+				obj->setx(x+padding);
 				break;
 			case ALLEGRO_ALIGN_CENTRE:
-				obj->xpos(x+padding+(w-obj->width())/2);
+				obj->setx(x+padding+(w-obj->width())/2);
 				break;
 			case ALLEGRO_ALIGN_RIGHT:
-				obj->xpos(x+padding+(w-obj->width()));
+				obj->setx(x+padding+(w-obj->width()));
 				break;
 		}
 		
-		obj->ypos(y + H);
+		obj->sety(y + H);
 		H += obj->height() + spacing;
 		
 		obj->realign();
@@ -461,16 +497,16 @@ void Row::realign(size_t start)
 		switch(align)
 		{
 			default:
-				obj->ypos(y+padding);
+				obj->sety(y+padding);
 				break;
 			case ALLEGRO_ALIGN_CENTRE:
-				obj->ypos(y+padding+(h-obj->height())/2);
+				obj->sety(y+padding+(h-obj->height())/2);
 				break;
 			case ALLEGRO_ALIGN_RIGHT:
-				obj->ypos(y+padding+(h-obj->height()));
+				obj->sety(y+padding+(h-obj->height()));
 				break;
 		}
-		obj->xpos(x + W);
+		obj->setx(x + W);
 		W += obj->width() + spacing;
 		
 		obj->realign();
@@ -493,24 +529,66 @@ Row::Row(u16 X, u16 Y, u16 padding, u16 spacing, i8 align)
 	align(align)
 {}
 
+// Switcher
+optional<u16> Switcher::get_sel() const
+{
+	if(get_sel_proc)
+		return get_sel_proc();
+	return sel_ind;
+}
+void Switcher::select(optional<u16> targ)
+{
+	if(set_sel_proc)
+		return set_sel_proc(targ);
+	sel_ind = targ;
+}
+void Switcher::draw() const
+{
+	if(!visible()) return;
+	auto ind = get_sel();
+	if(!ind) return;
+	DrawContainer& cont = *const_cast<DrawContainer*>(conts[*ind].get());
+	cont.draw_parent = this;
+	cont.draw();
+}
+bool Switcher::mouse()
+{
+	if(!visible()) return false;
+	auto ind = get_sel();
+	if(!ind) return false;
+	DrawContainer& cont = *(conts[*ind].get());
+	cont.draw_parent = this;
+	return cont.mouse();
+}
+void Switcher::tick()
+{
+	if(!visible()) return;
+	auto ind = get_sel();
+	if(!ind) return;
+	DrawContainer& cont = *(conts[*ind].get());
+	cont.draw_parent = this;
+	cont.tick();
+}
+
+
 // RadioButton
 void RadioButton::draw() const
 {
+	if(!visible()) return;
 	bool dis = disabled();
 	bool sel = selected();
 	bool hov = !dis && (flags&FL_HOVERED);
 	u16 CX = x, CY = y;
 	u16 X = x + radius + pad, Y = CY;
-	u16 RAD = radius, RAD2 = fillrad;
+	u16 RAD = radius, RAD2 = RAD*fill_sel;
 	scale_pos(CX,CY);
 	scale_pos(X,Y);
 	scale_min(RAD);
 	scale_min(RAD2);
-	RAD2 = RAD*fill_sel;
 	const Color bgc = dis ? C_RAD_DIS_BG : (hov ? C_RAD_HOVBG : C_RAD_BG);
 	const Color fgc = dis ? C_RAD_DIS_FG : C_RAD_FG;
 	const Color border = C_RAD_BORDER;
-	const Color textc = C_RAD_TXT;
+	const Color textc = dis ? C_RAD_DIS_TXT : C_RAD_TXT;
 	al_draw_filled_circle(CX, CY, RAD+pad/2 + (hov ? 0 : -1), border);
 	al_draw_filled_circle(CX, CY, RAD, bgc);
 	if(sel)
@@ -557,15 +635,15 @@ u16 RadioButton::height() const
 double RadioButton::fill_sel = 0.5;
 
 // RadioSet
-void RadioSet::init(vector<string>& opts, FontDef fnt, u16 rad, u16 frad)
+void RadioSet::init(vector<string>& opts, FontDef fnt, u16 rad)
 {
 	cont.clear();
 	u16 ind = 0;
 	for(string const& str : opts)
 	{
-		shared_ptr<RadioButton> rb = make_shared<RadioButton>(str, fnt, rad, frad);
+		shared_ptr<RadioButton> rb = make_shared<RadioButton>(str, fnt, rad);
 		add(rb);
-		rb->sel_proc = [this,ind]()
+		rb->sel_proc = [this,ind](GUIObject const& ref) -> bool
 			{
 				return this->get_sel() == ind;
 			};
@@ -588,6 +666,13 @@ optional<u16> RadioSet::get_sel() const
 		return get_sel_proc();
 	return sel_ind;
 }
+optional<string> RadioSet::get_sel_text() const
+{
+	auto ind = get_sel();
+	if(!ind)
+		return nullopt;
+	return std::static_pointer_cast<RadioButton>(cont[*ind])->text;
+}
 void RadioSet::select(optional<u16> targ)
 {
 	if(set_sel_proc)
@@ -598,22 +683,22 @@ void RadioSet::select(optional<u16> targ)
 // CheckBox
 void CheckBox::draw() const
 {
+	if(!visible()) return;
 	bool dis = disabled();
 	bool sel = selected();
 	bool hov = !dis && (flags&FL_HOVERED);
 	u16 CX = x, CY = y;
 	u16 X = x + radius + pad, Y = CY;
-	u16 RAD = radius, RAD2 = fillrad;
+	u16 RAD = radius, RAD2 = RAD*fill_sel;
 	scale_pos(CX,CY);
 	scale_pos(X,Y);
 	scale_min(RAD);
 	scale_min(RAD2);
-	RAD2 = RAD*fill_sel;
 	u16 BRAD = RAD+pad/2 + (hov ? 0 : -1);
 	const Color bgc = dis ? C_RAD_DIS_BG : (hov ? C_RAD_HOVBG : C_RAD_BG);
 	const Color fgc = dis ? C_RAD_DIS_FG : C_RAD_FG;
 	const Color border = C_RAD_BORDER;
-	const Color textc = C_RAD_TXT;
+	const Color textc = dis ? C_RAD_DIS_TXT : C_RAD_TXT;
 	al_draw_filled_rectangle(CX-BRAD, CY-BRAD, CX+BRAD, CY+BRAD, border);
 	al_draw_filled_rectangle(CX-RAD, CY-RAD, CX+RAD, CY+RAD, bgc);
 	if(sel)
@@ -628,6 +713,7 @@ double CheckBox::fill_sel = 0.5;
 // Button
 void Button::draw() const
 {
+	if(!visible()) return;
 	u16 X = x, Y = y, W = w, H = h;
 	scale_pos(X,Y,W,H);
 	
@@ -689,6 +775,7 @@ Button::Button(string const& txt, FontDef fnt, u16 X, u16 Y, u16 W, u16 H)
 // ShapeRect
 void ShapeRect::draw() const
 {
+	if(!visible()) return;
 	u16 X = x, Y = y, W = w, H = h;
 	scale_pos(X,Y,W,H);
 	if(c_border)
@@ -719,9 +806,23 @@ void draw_text(u16 X, u16 Y, string const& str, i8 align, FontDef font, Color c_
 }
 void Label::draw() const
 {
+	if(!visible()) return;
 	u16 X = x, Y = y;
 	scale_pos(X,Y);
-	draw_text(X, Y, text, align, font, C_LBL_TEXT, C_LBL_SHADOW);
+	if(type == TYPE_ERROR)
+	{
+		draw_text(X, Y, text, align, font, C_LBL_ERR_TEXT, C_LBL_ERR_SHADOW);
+	}
+	else
+	{
+		draw_text(X, Y, text, align, font, disabled() ? C_LBL_DIS_TEXT : C_LBL_TEXT, C_LBL_SHADOW);
+	}
+}
+void Label::tick()
+{
+	if(text_proc)
+		text = text_proc(*this);
+	return InputObject::tick();
 }
 u16 Label::xpos() const
 {
@@ -748,16 +849,16 @@ u16 Label::height() const
 	return f ? al_get_font_line_height(f) : 0;
 }
 Label::Label()
-	: InputObject(), text()
+	: InputObject(), text(), text_proc()
 {}
 Label::Label(string const& txt)
-	: InputObject(), text(txt), align(ALLEGRO_ALIGN_CENTRE)
+	: InputObject(), text(txt), align(ALLEGRO_ALIGN_CENTRE), text_proc()
 {}
 Label::Label(string const& txt, FontDef fd, i8 al)
-	: InputObject(), text(txt), align(al), font(fd)
+	: InputObject(), text(txt), align(al), font(fd), text_proc()
 {}
 Label::Label(string const& txt, u16 X, u16 Y, FontDef fd, i8 al)
-	: InputObject(X,Y), text(txt), align(al), font(fd)
+	: InputObject(X,Y), text(txt), align(al), font(fd), text_proc()
 {}
 
 bool blinkrate(u64 clk, u64 rate)
@@ -767,6 +868,7 @@ bool blinkrate(u64 clk, u64 rate)
 // TextField
 void TextField::draw() const
 {
+	if(!visible()) return;
 	u16 X = x, Y = y, W = w, H = height();
 	u16 HPAD = pad, VPAD = pad;
 	scale_pos(X,Y,W,H);
@@ -804,6 +906,20 @@ u16 TextField::height() const
 	ALLEGRO_FONT* f = font.get_base();
 	return (2*pad) + (f ? al_get_font_line_height(f) : 0);
 }
+
+int TextField::get_int() const
+{
+	return std::stoi(content);
+}
+double TextField::get_double() const
+{
+	return std::stod(content);
+}
+string TextField::get_str() const
+{
+	return content;
+}
+
 bool TextField::validate(string const& ostr, string const& nstr, char c)
 {
 	static const u16 MAX_STR = 9999;
@@ -919,15 +1035,9 @@ bool validate_alphanum(string const& ostr, string const& nstr, char c)
 }
 
 //POPUPS
-optional<u8> pop_confirm(string const& title, string const& msg, vector<string> const& strs)
+void generate_popup(Dialog& popup, optional<u8>& ret, bool& running,
+	string const& title, string const& msg, vector<string> const& strs)
 {
-	Dialog popup;
-	popups.emplace_back(&popup);
-	
-	bool redraw = true;
-	bool running = true;
-	optional<u8> ret;
-	
 	const uint POP_W = CANVAS_W/2;
 	const uint BTN_H = 32, BTN_PAD = 5;
 	//resizes automatically
@@ -941,6 +1051,8 @@ optional<u8> pop_confirm(string const& title, string const& msg, vector<string> 
 	{ //Text Label (alters popup size, must go first)
 		const u16 TXT_PAD = 15, TXT_VSPC = 3;
 		u16 new_h = BTN_H + 2*BTN_PAD + 2*TXT_PAD;
+		if(strs.empty())
+			new_h = 2*TXT_PAD;
 		FontDef fd(-20, false, BOLD_NONE);
 		ALLEGRO_FONT* f = fd.get_base();
 		char* buf = new char[msg.size()+1];
@@ -989,7 +1101,8 @@ optional<u8> pop_confirm(string const& title, string const& msg, vector<string> 
 			else if(c == '\n')
 			{
 				add_text = string(buf+anchor);
-				anchor = ++pos;
+				anchor = pos;
+				last_space = pos;
 			}
 			//
 			if(c == ' ')
@@ -1008,9 +1121,11 @@ optional<u8> pop_confirm(string const& title, string const& msg, vector<string> 
 		POP_Y = CANVAS_H/2 - POP_H/2;
 		const u16 TXT_CX = CANVAS_W/2;
 		u16 TXT_Y = POP_Y+TXT_PAD;
-		for(string const& s : texts)
+		for(string& str : texts)
 		{
-			lbls.emplace_back(make_shared<Label>(s, TXT_CX, TXT_Y, fd, ALLEGRO_ALIGN_CENTRE));
+			str.erase(str.find_last_not_of(" \t\r\n")+1);
+			str.erase(0, str.find_first_not_of(" \t\r\n"));
+			lbls.emplace_back(make_shared<Label>(str, TXT_CX, TXT_Y, fd, ALLEGRO_ALIGN_CENTRE));
 			TXT_Y += fh+TXT_VSPC;
 		}
 		
@@ -1024,6 +1139,7 @@ optional<u8> pop_confirm(string const& title, string const& msg, vector<string> 
 		
 		titlebar = make_shared<ShapeRect>(POP_X,POP_Y-TITLE_H,POP_W,TITLE_H,C_BACKGROUND,C_BLACK,4);
 	}
+	if(!strs.empty())
 	{ //Buttons
 		btnrow = make_shared<Row>(0,0,BTN_PAD,2,ALLEGRO_ALIGN_CENTRE);
 		for(size_t q = 0; q < strs.size(); ++q)
@@ -1053,9 +1169,22 @@ optional<u8> pop_confirm(string const& title, string const& msg, vector<string> 
 	popup.push_back(titlebar);
 	for(shared_ptr<Label>& lbl : lbls)
 		popup.push_back(lbl);
-	popup.push_back(btnrow);
+	if(btnrow)
+		popup.push_back(btnrow);
 	
 	on_resize();
+}
+optional<u8> pop_confirm(string const& title,
+	string const& msg, vector<string> const& strs)
+{
+	Dialog popup;
+	popups.emplace_back(&popup);
+	
+	bool running = true;
+	optional<u8> ret;
+	
+	generate_popup(popup, ret, running, title, msg, strs);
+	
 	popup.run_proc = [&running](){return running;};
 	popup.run_loop();
 	popups.pop_back();

@@ -5,6 +5,7 @@
 #include <map>
 #include <cstdint>
 #include <set>
+#include <functional>
 
 void AP_Disconnect();
 void AP_SetTags(std::set<std::string> tags);
@@ -62,6 +63,7 @@ void AP_SetLocationCheckedCallback(void (*f_locrecv)(int64_t));
 
 //Parameter Function will be called when Death Link is received. Alternative to Pending/Clear usage
 void AP_SetDeathLinkRecvCallback(void (*f_deathrecv)());
+void AP_SetDeathLinkRecvCallback(std::function<void(std::string,std::string)> proc);
 
 // Parameter Function receives Slotdata of respective type
 void AP_RegisterSlotDataIntCallback(std::string, void (*f_slotdata)(int));
@@ -86,10 +88,11 @@ void AP_StoryComplete();
 
 bool AP_DeathLinkPending();
 void AP_DeathLinkClear();
-bool AP_DeathLinkSend(std::string cause = "", std::string alias = "");
+bool AP_DeathLinkSend(std::string cause = "");
 void AP_SetDeathLinkForced(bool forced);
 void AP_SetDeathAmnestyForced(int amnesty);
 int AP_GetCurrentDeathAmnesty();
+void AP_SetDeathLinkAlias(std::string const& alias);
 
 /* Message Management Types */
 

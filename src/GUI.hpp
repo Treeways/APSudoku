@@ -45,6 +45,7 @@ struct DrawContainer : public vector<shared_ptr<GUIObject>>
 	std::function<bool()> run_proc;
 	virtual void run();
 	virtual void draw() const;
+	virtual void tick();
 	virtual bool mouse();
 	virtual void on_disp_resize();
 	virtual void key_event(ALLEGRO_EVENT const& ev);
@@ -57,6 +58,7 @@ struct Dialog : public DrawContainer
 	InputState state;
 	virtual void run() override;
 	virtual void draw() const override;
+	virtual void tick() override;
 	virtual bool mouse() override;
 	virtual void on_disp_resize() override;
 	virtual void key_event(ALLEGRO_EVENT const& ev) override;
@@ -107,35 +109,47 @@ enum MouseEvent
 #define FL_HOVERED  0b00000100
 
 struct DrawWrapper;
+enum WidgType
+{
+	TYPE_NORMAL,
+	TYPE_ERROR,
+	NUM_TYPES
+};
 struct GUIObject
 {
 	u8 flags;
+	u8 type;
 	std::function<void()> onResizeDisplay;
 	//Obj is disabled if this returns true, OR flags&FL_DISABLED
-	std::function<bool()> dis_proc;
+	std::function<bool(GUIObject const&)> dis_proc;
 	//If set, obj is selected iff returns true,
 	//ELSE obj is selected if flags&FL_SELECT
-	std::function<bool()> sel_proc;
+	std::function<bool(GUIObject const&)> sel_proc;
+	//If set, obj is invisible if returns true.
+	std::function<bool(GUIObject const&)> vis_proc;
 	
 	GUIObject const* draw_parent;
 	
 	void on_disp_resize();
 	virtual void draw() const {};
 	virtual bool mouse() {return false;}
+	virtual void tick() {}
 	virtual u16 xpos() const {return 0;}
 	virtual u16 ypos() const {return 0;}
-	virtual void xpos(u16 v) {}
-	virtual void ypos(u16 v) {}
+	virtual void setx(u16 v) {}
+	virtual void sety(u16 v) {}
 	virtual u16 width() const {return 0;}
 	virtual u16 height() const {return 0;}
 	virtual bool disabled() const;
 	virtual bool selected() const;
+	virtual bool visible() const;
 	virtual void key_event(ALLEGRO_EVENT const& ev) {}
 	virtual void realign(size_t start = 0) {}
 	virtual void focus(){}
 	bool focused() const;
 	GUIObject()
-		: flags(0), onResizeDisplay(), dis_proc(), sel_proc(), draw_parent(nullptr)
+		: flags(0), onResizeDisplay(), dis_proc(), sel_proc(), vis_proc(),
+			draw_parent(nullptr), type(TYPE_NORMAL)
 	{}
 };
 
@@ -147,8 +161,8 @@ struct InputObject : public GUIObject
 	virtual bool mouse() override;
 	virtual u16 xpos() const override {return x;}
 	virtual u16 ypos() const override {return y;}
-	virtual void xpos(u16 v) override {x = v + (x-xpos());}
-	virtual void ypos(u16 v) override {y = v + (y-ypos());}
+	void setx(u16 v) override {x = v + (x-xpos());}
+	void sety(u16 v) override {y = v + (y-ypos());}
 	virtual u16 width() const override {return w;}
 	virtual u16 height() const override {return h;}
 	virtual u32 handle_ev(MouseEvent ev);
@@ -170,6 +184,7 @@ struct DrawWrapper : public InputObject
 	DrawContainer cont;
 	virtual void draw() const override;
 	virtual bool mouse() override;
+	virtual void tick() override;
 	virtual u16 width() const override = 0;
 	virtual u16 height() const override = 0;
 	
@@ -203,9 +218,31 @@ struct Row : public DrawWrapper
 		u16 spacing = 2, i8 align = ALLEGRO_ALIGN_CENTRE);
 };
 
+struct Switcher : public InputObject
+{
+	vector<shared_ptr<DrawContainer>> conts;
+	Switcher() : InputObject(), conts(),
+		get_sel_proc(), set_sel_proc() {}
+	Switcher(std::function<optional<u16>()> getter,
+		std::function<void(optional<u16>)> setter)
+		: InputObject(), conts(), get_sel_proc(getter),
+		set_sel_proc(setter)
+	{}
+	optional<u16> get_sel() const;
+	void select(optional<u16> ind);
+	virtual void draw() const override;
+	virtual bool mouse() override;
+	virtual void tick() override;
+	void add(shared_ptr<DrawContainer> cont) {conts.push_back(cont);}
+private:
+	optional<u16> sel_ind;
+	std::function<optional<u16>()> get_sel_proc;
+	std::function<void(optional<u16>)> set_sel_proc;
+};
+
 struct RadioButton : public InputObject
 {
-	u16 radius, fillrad;
+	u16 radius;
 	string text;
 	FontDef font;
 	static const u16 pad = 4;
@@ -217,52 +254,53 @@ struct RadioButton : public InputObject
 	virtual u16 width() const override;
 	virtual u16 height() const override;
 	RadioButton() : text(), font(FontDef(-20, false, BOLD_NONE)),
-		radius(4), fillrad(2)
+		radius(4)
 	{}
-	RadioButton(string const& txt, FontDef fnt, u16 rad = 4, u16 frad = 2)
-		: radius(rad), fillrad(frad), text(txt), font(fnt)
+	RadioButton(string const& txt, FontDef fnt, u16 rad = 4)
+		: radius(rad), text(txt), font(fnt)
 	{}
-	RadioButton(u16 X, u16 Y, string const& txt, FontDef fnt, u16 rad = 4, u16 frad = 2)
-		: InputObject(X,Y), radius(rad), fillrad(frad), text(txt), font(fnt)
+	RadioButton(u16 X, u16 Y, string const& txt, FontDef fnt, u16 rad = 4)
+		: InputObject(X,Y), radius(rad), text(txt), font(fnt)
 	{}
 	
 	u32 handle_ev(MouseEvent ev) override;
 };
 struct RadioSet : public Column
 {
-	RadioSet(vector<string> opts, FontDef fnt, u16 rad = 4, u16 frad = 2)
+	RadioSet(vector<string> opts, FontDef fnt, u16 rad = 4)
 		: Column(0,0,0,2,ALLEGRO_ALIGN_LEFT)
 	{
-		init(opts, fnt, rad, frad);
+		init(opts, fnt, rad);
 		realign();
 	}
-	RadioSet(std::function<optional<u8>()> getter,
-		std::function<void(optional<u8>)> setter,
-		vector<string> opts, FontDef fnt, u16 rad = 4, u16 frad = 2)
+	RadioSet(std::function<optional<u16>()> getter,
+		std::function<void(optional<u16>)> setter,
+		vector<string> opts, FontDef fnt, u16 rad = 4)
 		: Column(0,0,0,2,ALLEGRO_ALIGN_LEFT),
 		get_sel_proc(getter), set_sel_proc(setter)
 	{
-		init(opts, fnt, rad, frad);
+		init(opts, fnt, rad);
 		realign();
 	}
 	optional<u16> get_sel() const;
+	optional<string> get_sel_text() const;
 	void select(optional<u16> ind);
 private:
 	optional<u16> sel_ind;
-	std::function<optional<u8>()> get_sel_proc;
-	std::function<void(optional<u8>)> set_sel_proc;
-	void init(vector<string>& opts, FontDef fnt, u16 rad, u16 frad);
+	std::function<optional<u16>()> get_sel_proc;
+	std::function<void(optional<u16>)> set_sel_proc;
+	void init(vector<string>& opts, FontDef fnt, u16 rad);
 };
 struct CheckBox : public RadioButton
 {
 	static double fill_sel;
 	virtual void draw() const override;
 	CheckBox() : RadioButton() {}
-	CheckBox(string const& txt, FontDef fnt, u16 rad = 4, u16 frad = 2)
-		: RadioButton(txt,fnt,rad,frad)
+	CheckBox(string const& txt, FontDef fnt, u16 rad = 4)
+		: RadioButton(txt,fnt,rad)
 	{}
-	CheckBox(u16 X, u16 Y, string const& txt, FontDef fnt, u16 rad = 4, u16 frad = 2)
-		: RadioButton(X,Y,txt,fnt,rad,frad)
+	CheckBox(u16 X, u16 Y, string const& txt, FontDef fnt, u16 rad = 4)
+		: RadioButton(X,Y,txt,fnt,rad)
 	{}
 };
 
@@ -302,12 +340,14 @@ struct Label : public InputObject
 	string text;
 	i8 align;
 	FontDef font;
+	std::function<string(Label& ref)> text_proc;
 	
 	void draw() const override;
 	u16 xpos() const override;
 	//u16 ypos() const override; //add valign?
 	u16 width() const override;
 	u16 height() const override;
+	void tick() override;
 	
 	Label();
 	Label(string const& txt);
@@ -325,6 +365,10 @@ struct TextField : public InputObject
 	
 	void draw() const override;
 	u16 height() const override;
+	
+	int get_int() const;
+	double get_double() const;
+	string get_str() const;
 	
 	TextField() : InputObject(0,0,64,0), content(),
 		font(FontDef(-20, false, BOLD_NONE))
@@ -349,6 +393,10 @@ bool validate_numeric(string const& ostr, string const& nstr, char c);
 bool validate_float(string const& ostr, string const& nstr, char c);
 bool validate_alphanum(string const& ostr, string const& nstr, char c);
 
+void generate_popup(Dialog& popup, optional<u8>& ret, bool& running,
+	string const& title, string const& msg, vector<string> const& strs);
+optional<u8> pop_confirm(string const& title,
+	string const& msg, vector<string> const& strs);
 bool pop_okc(string const& title, string const& msg);
 bool pop_yn(string const& title, string const& msg);
 void pop_inf(string const& title, string const& msg);

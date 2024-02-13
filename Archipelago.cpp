@@ -32,6 +32,7 @@ bool isSSL = true;
 bool ssl_success = false;
 int ap_player_id;
 std::string ap_player_name;
+std::string ap_deathlink_alias;
 size_t ap_player_name_hash;
 std::string ap_ip;
 std::string ap_game;
@@ -66,6 +67,7 @@ void (*checklocfunc)(int64_t);
 void (*locinfofunc)(std::vector<AP_NetworkItem>) = nullptr;
 void (*recvdeath)() = nullptr;
 void (*setreplyfunc)(AP_SetReply) = nullptr;
+std::function<void(std::string,std::string)> recvdeath2;
 
 // Serverdata Management
 std::map<std::string,AP_DataType> map_serverdata_typemanage;
@@ -154,6 +156,9 @@ void AP_SetDeathAmnestyForced(int amnesty) {
 }
 int AP_GetCurrentDeathAmnesty() {
     return useDeathlink() ? cur_deathlink_amnesty : -1;
+}
+void AP_SetDeathLinkAlias(std::string const& alias) {
+    ap_deathlink_alias = alias;
 }
 
 void AP_Init(const char* ip, const char* game, const char* player_name, const char* passwd) {
@@ -384,7 +389,7 @@ void AP_StoryComplete() {
     APSend(writer.write(req_t));
 }
 
-bool AP_DeathLinkSend(std::string cause, std::string alias) {
+bool AP_DeathLinkSend(std::string cause) {
     if (!init || !useDeathlink() || !multiworld)
         return false;
     if (cur_deathlink_amnesty > 0) {
@@ -396,7 +401,7 @@ bool AP_DeathLinkSend(std::string cause, std::string alias) {
     Json::Value req_t;
     req_t[0]["cmd"] = "Bounce";
     req_t[0]["data"]["time"] = std::chrono::duration_cast<std::chrono::seconds>(timestamp.time_since_epoch()).count();
-    req_t[0]["data"]["source"] = alias.empty() ? ap_player_name : alias; // Name and Shame >:D
+    req_t[0]["data"]["source"] = ap_deathlink_alias.empty() ? ap_player_name : ap_deathlink_alias; // Name and Shame >:D
     if(!cause.empty())
         req_t[0]["data"]["cause"] = cause;
     req_t[0]["tags"][0] = "DeathLink";
@@ -426,6 +431,9 @@ void AP_SetLocationInfoCallback(void (*f_locinfrecv)(std::vector<AP_NetworkItem>
 
 void AP_SetDeathLinkRecvCallback(void (*f_deathrecv)()) {
     recvdeath = f_deathrecv;
+}
+void AP_SetDeathLinkRecvCallback(std::function<void(std::string,std::string)> proc) {
+    recvdeath2 = proc;
 }
 
 void AP_RegisterSlotDataIntCallback(std::string key, void (*f_slotdata)(int)) {
@@ -890,15 +898,19 @@ bool parse_response(std::string msg, std::string &request) {
             fflush(stdout);
         } else if (cmd == "Bounced") {
             // Only expected Packages are DeathLink Packages. RIP
-            if (!enable_deathlink) continue;
+            if (!useDeathlink()) continue;
             for (unsigned int j = 0; j < root[i]["tags"].size(); j++) {
                 if (root[i]["tags"][j].asString() == "DeathLink") {
                     // Suspicions confirmed ;-; But maybe we died, not them?
-                    if (root[i]["data"]["source"].asString() == ap_player_name) break; // We already paid our penance
+					std::string const& name = ap_deathlink_alias.empty() ? ap_player_name : ap_deathlink_alias;
+                    if (root[i]["data"]["source"].asString() == name) break; // We already paid our penance
                     deathlinkstat = true;
-                    std::string out = root[i]["data"]["source"].asString() + " killed you";
                     if (recvdeath != nullptr) {
                         (*recvdeath)();
+                    }
+                    if(recvdeath2) {
+                        recvdeath2(root[i]["data"]["source"].asString(),
+                            root[i]["data"]["cause"].asString());
                     }
                     break;
                 }

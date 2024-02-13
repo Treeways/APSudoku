@@ -15,6 +15,23 @@ constexpr u32 rgba_to_hex(u8 r, u8 g, u8 b, u8 a)
 }
 
 template<typename T>
+string set_string(set<T> const& cont)
+{
+	stringstream s;
+	s << "{ ";
+	bool first = true;
+	for(T const& val : cont)
+	{
+		if(!first)
+			s << ", ";
+		else first = false;
+		s << val;
+	}
+	s << " }";
+	return s.str();
+}
+
+template<typename T>
 T vbound(T v, T low, T high)
 {
 	if(low > high)

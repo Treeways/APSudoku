@@ -90,6 +90,7 @@ add_executable(APSudoku
 	src/GUI.cpp
 	src/Font.cpp
 	src/Theme.cpp
+	src/Network.cpp
 	src/Config.cpp
 	src/Util.cpp
 	src/SudokuGrid.cpp

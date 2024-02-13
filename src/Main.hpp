@@ -6,6 +6,7 @@
 #include <allegro5/allegro_ttf.h>
 #include <map>
 #include <vector>
+#include <deque>
 #include <set>
 #include <string>
 #include <format>
@@ -14,6 +15,7 @@
 #include <memory>
 #include <tuple>
 #include <stdint.h>
+#include <sstream>
 typedef int8_t i8;
 typedef int16_t i16;
 typedef int32_t i32;
@@ -25,9 +27,11 @@ typedef uint64_t u64;
 typedef unsigned int uint;
 using std::tuple;
 using std::string;
+using std::stringstream;
 using std::set;
 using std::map;
 using std::vector;
+using std::deque;
 using std::to_string;
 using std::optional;
 using std::nullopt;
@@ -94,6 +98,7 @@ enum direction
 	NUM_DIRS
 };
 
+void log(string const& hdr, string const& msg);
 void log(string const& msg);
 void error(string const& msg);
 void fail(string const& msg);
