@@ -88,6 +88,8 @@ bool AP_DeathLinkPending();
 void AP_DeathLinkClear();
 bool AP_DeathLinkSend(std::string cause = "", std::string alias = "");
 void AP_SetDeathLinkForced(bool forced);
+void AP_SetDeathAmnestyForced(int amnesty);
+int AP_GetCurrentDeathAmnesty();
 
 /* Message Management Types */
 

@@ -48,6 +48,7 @@ bool enable_deathlink = false;
 bool force_deathlink = false; //enable it regardless of slot data
 int deathlink_amnesty = 0;
 int cur_deathlink_amnesty = 0;
+int force_deathlink_amnesty = -1;
 
 // Message System
 std::deque<AP_Message*> messageQueue;
@@ -110,6 +111,7 @@ void parseDataPkg();
 AP_NetworkPlayer getPlayer(int team, int slot);
 bool useDeathlink();
 void updateAPTags();
+int getDeathAmnesty();
 // PRIV Func Declarations End
 
 void AP_Disconnect() { //Disconnect from a slot, call AP_Init again to reconnect
@@ -144,6 +146,14 @@ void AP_SetDeathLinkForced(bool forced) { //Set if DeathLink is *forced* on, or 
     if(ap_tags.contains("DeathLink") == useDeathlink())
         return; //unchanged
     AP_SetTags(ap_tags);
+}
+void AP_SetDeathAmnestyForced(int amnesty) {
+    force_deathlink_amnesty = amnesty;
+    if(cur_deathlink_amnesty > getDeathAmnesty())
+        cur_deathlink_amnesty = getDeathAmnesty();
+}
+int AP_GetCurrentDeathAmnesty() {
+    return useDeathlink() ? cur_deathlink_amnesty : -1;
 }
 
 void AP_Init(const char* ip, const char* game, const char* player_name, const char* passwd) {
@@ -381,7 +391,7 @@ bool AP_DeathLinkSend(std::string cause, std::string alias) {
         cur_deathlink_amnesty--;
         return false;
     }
-    cur_deathlink_amnesty = deathlink_amnesty;
+    cur_deathlink_amnesty = getDeathAmnesty();
     std::chrono::time_point<std::chrono::system_clock> timestamp = std::chrono::system_clock::now();
     Json::Value req_t;
     req_t[0]["cmd"] = "Bounce";
@@ -660,7 +670,7 @@ bool parse_response(std::string msg, std::string &request) {
                 deathlink_amnesty = root[i]["slot_data"].get("death_link_amnesty", 0).asInt();
             else if (root[i]["slot_data"]["DeathLink_Amnesty"] != Json::nullValue)
                 deathlink_amnesty = root[i]["slot_data"].get("DeathLink_Amnesty", 0).asInt();
-            cur_deathlink_amnesty = deathlink_amnesty;
+            cur_deathlink_amnesty = getDeathAmnesty();
             for (std::string key : slotdata_strings) {
                 if (map_slotdata_callback_int.count(key)) {
                     (*map_slotdata_callback_int.at(key))(root[i]["slot_data"][key].asInt());
@@ -968,5 +978,11 @@ void updateAPTags() {
     
     req_t.append(update_tags);
     APSend(writer.write(req_t));
+}
+
+int getDeathAmnesty() {
+    if(force_deathlink_amnesty < 0)
+        return deathlink_amnesty;
+    return force_deathlink_amnesty;
 }
 
