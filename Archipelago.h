@@ -165,6 +165,7 @@ int AP_GetRoomInfo(AP_RoomInfo*);
 AP_ConnectionStatus AP_GetConnectionStatus();
 int AP_GetUUID();
 int AP_GetPlayerID();
+int AP_GetPlayerTeam();
 
 /* Serverside Data Types */
 

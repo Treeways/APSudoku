@@ -31,6 +31,7 @@ bool multiworld = true;
 bool isSSL = true;
 bool ssl_success = false;
 int ap_player_id;
+int ap_player_team;
 std::string ap_player_name;
 std::string ap_deathlink_alias;
 size_t ap_player_name_hash;
@@ -513,6 +514,9 @@ int AP_GetUUID() {
 int AP_GetPlayerID() {
     return ap_player_id;
 }
+int AP_GetPlayerTeam() {
+    return ap_player_team;
+}
 
 void AP_SetServerData(AP_SetServerDataRequest* request) {
     request->status = AP_RequestStatus::Pending;
@@ -657,6 +661,7 @@ bool parse_response(std::string msg, std::string &request) {
 
             printf("AP: Authenticated\n");
             ap_player_id = root[i]["slot"].asInt();
+            ap_player_team = root[i]["team"].asInt();
             for (unsigned int j = 0; j < root[i]["checked_locations"].size(); j++) {
                 //Sync checks with server
                 int64_t loc_id = root[i]["checked_locations"][j].asInt64();
