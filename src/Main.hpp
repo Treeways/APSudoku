@@ -4,6 +4,9 @@
 #include <allegro5/allegro_primitives.h>
 #include <allegro5/allegro_font.h>
 #include <allegro5/allegro_ttf.h>
+#include <json/json.h>
+#include <json/value.h>
+#include <json/reader.h>
 #include <map>
 #include <vector>
 #include <deque>
@@ -16,6 +19,8 @@
 #include <tuple>
 #include <stdint.h>
 #include <sstream>
+#include <chrono>
+#include <random>
 typedef int8_t i8;
 typedef int16_t i16;
 typedef int32_t i32;
@@ -38,10 +43,15 @@ using std::nullopt;
 using std::shared_ptr;
 using std::make_shared;
 
+extern std::mt19937 rng;
+u64 rand(u64 range);
+u64 rand(u64 min, u64 max);
+
 struct FontDef;
 struct GUIObject;
 struct InputObject;
 struct DrawContainer;
+struct AP_NetworkItem;
 
 extern ALLEGRO_DISPLAY* display;
 
@@ -56,6 +66,18 @@ void on_resize();
 
 extern bool program_running;
 extern bool settings_unsaved;
+
+struct Hint
+{
+	string entrance;
+	int finding_player, receiving_player;
+	bool found;
+	int item, location;
+	int item_flags;
+	operator string() const;
+	Hint(Json::Value const& v);
+	Hint(AP_NetworkItem const& itm);
+};
 
 enum Screen
 {

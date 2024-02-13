@@ -7,10 +7,6 @@
 #include <set>
 #include <functional>
 
-void AP_Disconnect();
-void AP_SetTags(std::set<std::string> tags);
-std::set<std::string> const& AP_GetTags();
-
 void AP_Init(const char*, const char*, const char*, const char*);
 void AP_Init(const char*);
 bool AP_IsInit();
@@ -39,6 +35,10 @@ struct AP_NetworkPlayer {
     std::string name;
     std::string alias;
     std::string game;
+    std::string name_or_alias() const
+    {
+        return (alias.empty() || alias == name) ? name : alias;
+    }
 };
 
 // Set current client version
@@ -57,13 +57,16 @@ void AP_SetItemClearCallback(void (*f_itemclr)());
 //Parameter Function must collect item id given with parameter. Secound parameter indicates whether or not to notify player
 void AP_SetItemRecvCallback(void (*f_itemrecv)(int64_t,bool));
 //Parameter Function must mark given location id as checked
-void AP_SetLocationCheckedCallback(void (*f_locrecv)(int64_t));
+void AP_SetLocationCheckedCallback(std::function<void(int64_t)> f_loccheckrecv);
 
 /* Optional Callback Functions */
 
 //Parameter Function will be called when Death Link is received. Alternative to Pending/Clear usage
 void AP_SetDeathLinkRecvCallback(void (*f_deathrecv)());
 void AP_SetDeathLinkRecvCallback(std::function<void(std::string,std::string)> proc);
+
+// Called on 'Connected'
+void AP_SetConnectedCallback(std::function<void()>);
 
 // Parameter Function receives Slotdata of respective type
 void AP_RegisterSlotDataIntCallback(std::string, void (*f_slotdata)(int));
@@ -73,7 +76,7 @@ void AP_RegisterSlotDataRawCallback(std::string, void (*f_slotdata)(std::string)
 // Send LocationScouts packet
 void AP_SendLocationScouts(std::set<int64_t> const& locations, int create_as_hint);
 // Receive Function for LocationInfo
-void AP_SetLocationInfoCallback(void (*f_locrecv)(std::vector<AP_NetworkItem>));
+void AP_SetLocationInfoCallback(std::function<void(std::vector<AP_NetworkItem>)> f_locrecv);
 
 /* Game Management Functions */
 
@@ -224,3 +227,15 @@ void AP_RegisterSetReplyCallback(void (*f_setreply)(AP_SetReply));
 void AP_SetNotify(std::map<std::string,AP_DataType>);
 // Single Key version of above for convenience
 void AP_SetNotify(std::string, AP_DataType);
+
+
+// Local Additions
+
+void AP_Disconnect();
+void AP_SetTags(std::set<std::string> tags);
+std::set<std::string> const& AP_GetTags();
+std::string const& AP_GetSlotGame();
+std::map<int, AP_NetworkPlayer>& AP_GetPlayerMap();
+std::map<std::pair<std::string,int64_t>, std::string>& AP_GetLocationMap();
+std::map<std::pair<std::string,int64_t>, std::string>& AP_GetItemMap();
+std::set<int64_t> const& AP_GetMissingLocations();

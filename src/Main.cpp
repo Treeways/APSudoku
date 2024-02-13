@@ -25,11 +25,43 @@ void fail(string const& msg)
 	exit(1);
 }
 
+Hint::operator string() const
+{
+	auto flagstr = ap_get_itemflagstr(item_flags);
+	flagstr = flagstr ? (" "+*flagstr) : "";
+	return std::format("{} {} '{}'{} at '{}' for {}",
+		ap_get_playername(finding_player),
+		found ? "found" : "will find",
+		ap_get_itemname(item), *flagstr,
+		ap_get_locationname(location),
+		ap_get_playername(receiving_player));
+}
+Hint::Hint(Json::Value const& v)
+	: entrance(v["entrance"].asString()),
+	finding_player(v["finding_player"].asInt()),
+	receiving_player(v["receiving_player"].asInt()),
+	found(v["found"].asBool()),
+	item(v["item"].asInt()),
+	location(v["location"].asInt()),
+	item_flags(v["item_flags"].asInt())
+{}
+Hint::Hint(AP_NetworkItem const& itm)
+	: entrance(),
+	finding_player(AP_GetPlayerID()),
+	receiving_player(itm.player),
+	found(false),
+	item(itm.item),
+	location(itm.location),
+	item_flags(itm.flags)
+{}
+
 ALLEGRO_DISPLAY* display;
 ALLEGRO_BITMAP* canvas;
 ALLEGRO_TIMER* timer;
 ALLEGRO_EVENT_QUEUE* events;
 ALLEGRO_EVENT_SOURCE event_source;
+
+std::mt19937 rng;
 
 Difficulty diff = DIFF_NORMAL;
 EntryMode mode = ENT_ANSWER;
@@ -245,7 +277,7 @@ void build_gui()
 							pop_inf("Unfinished","Not all cells are filled!");
 						else if(grid->check())
 						{
-							pop_inf("Correct","Puzzle solved correctly! WIP!");
+							grant_hint();
 							grid->exit();
 						}
 						else
@@ -314,11 +346,11 @@ void build_gui()
 				{
 					return validate_alphanum(o,n,c) || c == '.';
 				}},
-			{"Port:","57298", [](string const& o, string const& n, char c)
+			{"Port:","59052", [](string const& o, string const& n, char c)
 				{
 					return validate_numeric(o,n,c) && n.size() <= 5;
 				}},
-			{"Slot:","EmV",nullptr},
+			{"Slot:","Emily",nullptr},
 			{"Passwd:","",nullptr}
 		};
 		ap_fields.clear();
@@ -594,6 +626,8 @@ int main(int argc, char **argv)
 	//
 	setup_allegro();
 	log("Allegro initialized successfully");
+	rng = std::mt19937(std::chrono::duration_cast<std::chrono::milliseconds>(
+		std::chrono::system_clock::now().time_since_epoch()).count());
 	log("Building GUI...");
 	build_gui();
 	log("GUI built successfully, launch complete");
@@ -752,3 +786,14 @@ void setup_allegro()
 	init_fonts();
 }
 
+u64 rand(u64 range)
+{
+	return rng() % range;
+}
+u64 rand(u64 min, u64 max)
+{
+	if(max < min)
+		std::swap(min,max);
+	u64 range = max-min+1;
+	return rand(range) + min;
+}

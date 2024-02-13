@@ -1016,7 +1016,7 @@ void TextField::key_event(ALLEGRO_EVENT const& ev)
 					cpos = 0;
 					break;
 				case ALLEGRO_KEY_END:
-					cpos = content.size();
+					cpos = u16(content.size());
 					break;
 				case ALLEGRO_KEY_BACKSPACE:
 					if(cpos > 0)
@@ -1079,7 +1079,7 @@ void TextField::paste()
 		if(validate(s))
 		{
 			content = before_sel() + s + after_sel();
-			cpos += s.size();
+			cpos += u16(s.size());
 		}
 		
 		al_free(str);
