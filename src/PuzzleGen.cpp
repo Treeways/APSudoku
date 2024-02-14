@@ -2,18 +2,185 @@
 #include "GUI.hpp"
 #include "PuzzleGen.hpp"
 #include <thread>
+#include <mutex>
 
-template<typename T>
-T* rand(set<T>& s)
-{
-	if(s.empty()) return nullptr;
-	size_t indx = rand(s.size());
-	auto it = s.begin();
-	std::advance(it,indx);
-	return const_cast<T*>(&*it);
-}
 namespace PuzzleGen
 {
+
+struct PuzzleQueue
+{
+	BuiltPuzzle take();
+	void give(BuiltPuzzle&& puz);
+	size_t size() const;
+	size_t atm_size();
+
+	bool try_lock_if_unempty();
+	
+	void lock() {mut.lock();}
+	bool try_lock() {return mut.try_lock();}
+	void unlock() {mut.unlock();}
+private:
+	deque<BuiltPuzzle> queue;
+	std::mutex mut;
+};
+BuiltPuzzle PuzzleQueue::take()
+{
+	BuiltPuzzle ret = queue.front();
+	queue.pop_front();
+	return ret;
+}
+void PuzzleQueue::give(BuiltPuzzle&& puz)
+{
+	queue.emplace_back(puz);
+}
+size_t PuzzleQueue::size() const
+{
+	return queue.size();
+}
+size_t PuzzleQueue::atm_size()
+{
+	lock();
+	size_t ret = size();
+	unlock();
+	return ret;
+}
+bool PuzzleQueue::try_lock_if_unempty()
+{
+	if(!try_lock())
+		return false;
+	if(queue.empty())
+	{
+		unlock();
+		return false;
+	}
+	return true;
+}
+
+struct PuzzleGenFactory
+{
+	static BuiltPuzzle get(Difficulty d);
+	static void init();
+	static void shutdown();
+private:
+	static const u8 KEEP_READY = 10;
+	static PuzzleQueue puzzles[3];
+	
+	Difficulty d;
+	bool running;
+	std::thread runtime;
+	
+	void run();
+	
+	PuzzleGenFactory() = default;
+	PuzzleGenFactory(Difficulty d) : d(d), running(false),
+		runtime()
+	{}
+	#define NUM_E_FAC 1
+	#define NUM_M_FAC 1
+	#define NUM_H_FAC 3
+	static PuzzleGenFactory e_factories[NUM_E_FAC];
+	static PuzzleGenFactory m_factories[NUM_M_FAC];
+	static PuzzleGenFactory h_factories[NUM_H_FAC];
+	static set<PuzzleGenFactory*> factories;
+};
+PuzzleGenFactory PuzzleGenFactory::e_factories[NUM_E_FAC];
+PuzzleGenFactory PuzzleGenFactory::m_factories[NUM_M_FAC];
+PuzzleGenFactory PuzzleGenFactory::h_factories[NUM_H_FAC];
+set<PuzzleGenFactory*> PuzzleGenFactory::factories;
+PuzzleQueue PuzzleGenFactory::puzzles[3];
+
+void PuzzleGenFactory::run()
+{
+	PuzzleQueue& queue = puzzles[d];
+	while(running)
+	{
+		if(queue.atm_size() >= KEEP_READY)
+		{
+			al_rest(5);
+			continue;
+		}
+		
+		PuzzleGrid puzzle(d); //generate the puzzle at current difficulty
+		//
+		BuiltPuzzle puz;
+		for(PuzzleCell const& cell : puzzle.cells)
+			puz.emplace_back(cell.val, cell.given);
+		
+		queue.lock();
+		queue.give(std::move(puz));
+		log(std::format("[PUZ {}] +1 ({})", (u16)d, (u16)queue.size()));
+		queue.unlock();
+		al_rest(0.05);
+	}
+}
+BuiltPuzzle PuzzleGenFactory::get(Difficulty d)
+{
+	PuzzleQueue& queue = puzzles[d];
+	if(!queue.try_lock_if_unempty())
+	{
+		optional<u8> _ret;
+		bool _foo;
+		Dialog popup;
+		popups.emplace_back(&popup);
+		generate_popup(popup, _ret, _foo, "Please Wait", "Generating puzzle...", {});
+		popup.run_proc = [&queue]()
+			{
+				return !queue.try_lock_if_unempty();
+			};
+		popup.run_loop();
+		popups.pop_back();
+	}
+	
+	BuiltPuzzle puz = queue.take();
+	
+	log(std::format("[PUZ {}] -1 ({})", (u16)d, (u16)queue.size()));
+	queue.unlock();
+	
+	return puz;
+}
+void PuzzleGenFactory::init()
+{
+	for(u8 q = 0; q < NUM_E_FAC; ++q)
+	{
+		PuzzleGenFactory& fac = e_factories[q];
+		new (&fac) PuzzleGenFactory(DIFF_EASY);
+		fac.running = true;
+		fac.runtime = std::thread(&PuzzleGenFactory::run, &fac);
+		factories.insert(&fac);
+	}
+	for(u8 q = 0; q < NUM_M_FAC; ++q)
+	{
+		PuzzleGenFactory& fac = m_factories[q];
+		new (&fac) PuzzleGenFactory(DIFF_NORMAL);
+		fac.running = true;
+		fac.runtime = std::thread(&PuzzleGenFactory::run, &fac);
+		factories.insert(&fac);
+	}
+	for(u8 q = 0; q < NUM_H_FAC; ++q)
+	{
+		PuzzleGenFactory& fac = h_factories[q];
+		new (&fac) PuzzleGenFactory(DIFF_HARD);
+		fac.running = true;
+		fac.runtime = std::thread(&PuzzleGenFactory::run, &fac);
+		factories.insert(&fac);
+	}
+}
+void PuzzleGenFactory::shutdown()
+{
+	for(PuzzleGenFactory* f : factories)
+		f->running = false;
+	for(PuzzleGenFactory* f : factories)
+		f->runtime.join();
+}
+
+void init()
+{
+	PuzzleGenFactory::init();
+}
+void shutdown()
+{
+	PuzzleGenFactory::shutdown();
+}
 
 PuzzleCell::PuzzleCell()
 	: val(0), given(true),
@@ -265,34 +432,9 @@ void PuzzleGrid::print_sol() const
 	}
 }
 
-static void _puzzle_loadscr(volatile bool* running)
+BuiltPuzzle gen_puzzle(Difficulty d)
 {
-	optional<u8> _ret;
-	bool _foo;
-	Dialog popup;
-	popups.emplace_back(&popup);
-	generate_popup(popup, _ret, _foo, "Please Wait", "Generating puzzle...", {});
-	popup.run_proc = [&running]()
-		{
-			return *running;
-		};
-	popup.run_loop();
-	popups.pop_back();
-}
-vector<pair<u8,bool>> gen_puzzle(Difficulty d)
-{
-	volatile bool running = true;
-	std::thread popup_thread(_puzzle_loadscr, &running);
-	
-	PuzzleGrid puzzle(d);
-	vector<pair<u8,bool>> ret;
-	for(PuzzleCell const& cell : puzzle.cells)
-		ret.emplace_back(cell.val, cell.given);
-	
-	running = false;
-	popup_thread.join();
-	
-	return ret;
+	return PuzzleGenFactory::get(d);
 }
 
 }

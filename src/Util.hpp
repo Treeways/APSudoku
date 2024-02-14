@@ -64,3 +64,13 @@ T vbound(T v, T low, T high, bool& bounded)
 	return v;
 }
 
+template<typename T>
+T* rand(set<T>& s)
+{
+	if(s.empty()) return nullptr;
+	size_t indx = rand(s.size());
+	auto it = s.begin();
+	std::advance(it,indx);
+	return const_cast<T*>(&*it);
+}
+

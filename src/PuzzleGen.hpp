@@ -4,6 +4,10 @@
 
 namespace PuzzleGen
 {
+	void init();
+	void shutdown();
+	
+	typedef vector<pair<u8,bool>> BuiltPuzzle;
 	struct PuzzleCell
 	{
 		u8 val;
@@ -32,7 +36,7 @@ namespace PuzzleGen
 		void populate();
 		void build(Difficulty d);
 	};
-	vector<pair<u8,bool>> gen_puzzle(Difficulty d);
+	BuiltPuzzle gen_puzzle(Difficulty d);
 	
 	class puzzle_gen_exception : public sudoku_exception
 	{
