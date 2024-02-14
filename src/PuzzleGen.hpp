@@ -11,18 +11,35 @@ namespace PuzzleGen
 		
 		set<u8> options;
 		void clear();
+		void reset_opts();
 		PuzzleCell();
 	};
 	struct PuzzleGrid
 	{
 		PuzzleCell cells[9*9];
-		PuzzleGrid();
-		void print();
+		PuzzleGrid(Difficulty d);
+		
+		static PuzzleGrid given_copy(PuzzleGrid const& g);
+		bool is_unique() const;
+		void print() const;
+		void print_sol() const;
 	private:
+		PuzzleGrid();
 		void clear();
-		pair<set<u8>,u8> trim_opts();
+		
+		pair<set<u8>,u8> trim_opts(map<u8,set<u8>> const& banned);
+		bool solve(bool check_unique);
 		void populate();
+		void build(Difficulty d);
 	};
-	vector<pair<u8,bool>> gen_puzzle();
+	vector<pair<u8,bool>> gen_puzzle(Difficulty d);
+	
+	class puzzle_gen_exception : public sudoku_exception
+	{
+	public:
+		puzzle_gen_exception(string const& msg)
+			: sudoku_exception(msg)
+		{}
+	};
 }
 

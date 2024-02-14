@@ -19,7 +19,6 @@ namespace Sudoku
 	#define CFL_SELECTED   0b0100
 	
 	struct Cell;
-	struct Region;
 	struct Grid;
 	
 	#define CELL_SZ 32
@@ -42,14 +41,6 @@ namespace Sudoku
 		
 		void enter(EntryMode m, u8 val);
 	};
-	struct Region
-	{
-		Cell* cells[9] = {nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr};
-		PuzzleState check() const;
-	private:
-		Region() = default;
-		friend struct Grid;
-	};
 	enum
 	{
 		STYLE_NONE,
@@ -62,9 +53,6 @@ namespace Sudoku
 		static int sel_style;
 		Cell cells[9*9];
 		
-		Region get_row(u8 ind);
-		Region get_col(u8 ind);
-		Region get_box(u8 ind);
 		Cell* get(u8 row, u8 col);
 		Cell* get_hov();
 		optional<u8> find(Cell* c);
@@ -83,7 +71,7 @@ namespace Sudoku
 		set<Cell*> get_selected() const {return selected;}
 		
 		bool active() const;
-		void generate(u8 diff);
+		void generate(Difficulty d);
 		
 		u32 handle_ev(MouseEvent e) override;
 		
@@ -92,18 +80,6 @@ namespace Sudoku
 		set<Cell*> selected;
 		Cell* focus_cell;
 		
-	};
-	
-	class sudoku_exception : public std::exception
-	{
-	public:
-		const char * what() const noexcept override {
-			return msg.c_str();
-		}
-		sudoku_exception(std::string const& msg) : msg(msg)
-		{}
-	private:
-		std::string msg;
 	};
 }
 
