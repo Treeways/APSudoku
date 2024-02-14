@@ -129,4 +129,17 @@ void log(string const& msg);
 void error(string const& msg);
 void fail(string const& msg);
 
+class sudoku_exception : public std::exception
+{
+public:
+	virtual const char * what() const noexcept override
+	{
+		return msg.c_str();
+	}
+	sudoku_exception(string const& msg) : msg(msg)
+	{}
+private:
+	string msg;
+};
+
 #include "Util.hpp"

@@ -278,7 +278,9 @@ void build_gui()
 							pop_inf("Unfinished","Not all cells are filled!");
 						else if(grid->check())
 						{
-							grant_hint();
+							if(ap_connected())
+								grant_hint();
+							else pop_inf("Solved","Correct!");
 							grid->exit();
 						}
 						else
@@ -553,19 +555,6 @@ void dlg_render()
 	al_restore_state(&oldstate);
 }
 
-void init_grid()
-{
-	auto vec = PuzzleGen::gen_puzzle();
-	for(u8 q = 0; q < 9*9; ++q)
-	{
-		Sudoku::Cell& c = grid->cells[q];
-		auto [v,g] = vec[q];
-		c.val = v;
-		if(g)
-			c.flags |= CFL_GIVEN;
-		else c.flags &= ~CFL_GIVEN;
-	}
-}
 void setup_allegro();
 void save_cfg();
 bool program_running = true;
@@ -626,8 +615,6 @@ int main(int argc, char **argv)
 	log("Building GUI...");
 	build_gui();
 	log("GUI built successfully, launch complete");
-	
-	init_grid();
 	
 	InputState input_state;
 	cur_input = &input_state;
