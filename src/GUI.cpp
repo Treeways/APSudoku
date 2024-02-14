@@ -888,20 +888,52 @@ void TextField::draw() const
 	const Color bg = dis ? C_TF_DIS_BG : (hov ? C_TF_HOVBG : C_TF_BG);
 	const Color fg = dis ? C_TF_DIS_FG : C_TF_FG;
 	const Color border = C_TF_BORDER; 
-	const Color cursorc = C_TF_CURSOR;
+	const Color selfg = C_TF_SEL_FG;
+	const Color selbg = C_TF_SEL_BG;
 	al_draw_rectangle(X,Y,X+W-1,Y+H-1,border,hov ? 4 : 2);
 	al_draw_filled_rectangle(X,Y,X+W-1,Y+H-1,bg);
 	
 	ClipRect::set(X,Y,W,H);
 	
+	optional<u16> cursor_x;
 	if(!content.empty())
-		al_draw_text(f, fg, X + HPAD, Y + VPAD, ALLEGRO_ALIGN_LEFT, content.c_str());
+	{
+		if(cpos != cpos2) //selection to draw
+		{
+			auto TX = X+HPAD;
+			string str = before_sel();
+			al_draw_text(f, fg, TX, Y + VPAD, ALLEGRO_ALIGN_LEFT, str.c_str());
+			TX += al_get_text_width(f,str.c_str());
+			str = in_sel();
+			auto SELW = al_get_text_width(f,str.c_str());
+			auto FX = (!cpos || !cpos2) ? X : TX-1;
+			al_draw_filled_rectangle(FX,Y,TX+SELW+1,Y+H-1,selbg);
+			cursor_x = (cpos < cpos2) ? FX : (TX+SELW+1);
+			al_draw_text(f, selfg, TX, Y + VPAD, ALLEGRO_ALIGN_LEFT, str.c_str());
+			TX += SELW;
+			str = after_sel();
+			al_draw_text(f, fg, TX, Y + VPAD, ALLEGRO_ALIGN_LEFT, str.c_str());
+		}
+		else
+		{
+			al_draw_text(f, fg, X + HPAD, Y + VPAD, ALLEGRO_ALIGN_LEFT, content.c_str());
+		}
+	}
 	if(foc && cpos <= content.size() && blinkrate(cur_frame,60)) //typing cursor
 	{
-		string tmp = content.substr(0,cpos);
-		u16 subw = al_get_text_width(f,tmp.c_str());
-		auto lx = X+HPAD+subw+1;
-		al_draw_line(lx, Y+VPAD, lx, Y+H-VPAD, cursorc, 0);
+		const Color cursorc2 = cpos < cpos2 ? C_TF_CURSOR : C_TF_SEL_CURSOR;
+		const Color cursorc = cpos >= cpos2 ? C_TF_CURSOR : C_TF_SEL_CURSOR;
+		if(!cursor_x)
+		{
+			string tmp = content.substr(0,cpos);
+			u16 subw = al_get_text_width(f,tmp.c_str());
+			cursor_x = X+HPAD+subw+1;
+		}
+		auto& lx = *cursor_x;
+		if(cpos != cpos2)
+			al_draw_filled_rectangle(lx-2, Y+VPAD, lx-2+1, Y+H-VPAD, cursorc2);
+		al_draw_filled_rectangle(lx, Y+VPAD, lx+1, Y+H-VPAD, cursorc);
+		//else al_draw_line(lx, Y+VPAD, lx, Y+H-VPAD, cursorc, 1);
 	}
 	
 	clip.load();
@@ -968,7 +1000,10 @@ u32 TextField::handle_ev(MouseEvent e)
 	switch(e)
 	{
 		case MOUSE_LCLICK:
+		case MOUSE_LDOWN:
 		{
+			if(e == MOUSE_LDOWN && !focused())
+				break;
 			u16 X = x+pad, Y = y+pad, W = w, H = height()-2*pad;
 			scale_pos(X,Y,W,H);
 			ALLEGRO_FONT* f = font.get();
@@ -984,6 +1019,8 @@ u32 TextField::handle_ev(MouseEvent e)
 				X += cw;
 			}
 			cpos = ind;
+			if(e == MOUSE_LCLICK)
+				cpos2 = cpos;
 			return MRET_TAKEFOCUS;
 		}
 		case MOUSE_HOVER_ENTER:
@@ -991,6 +1028,9 @@ u32 TextField::handle_ev(MouseEvent e)
 			break;
 		case MOUSE_HOVER_EXIT:
 			flags &= ~FL_HOVERED;
+			break;
+		case MOUSE_LOSTFOCUS:
+			cpos2 = cpos;
 			break;
 	}
 	return MRET_OK;
@@ -1002,31 +1042,51 @@ void TextField::key_event(ALLEGRO_EVENT const& ev)
 		case ALLEGRO_EVENT_KEY_CHAR:
 		{
 			bool is_char = false;
+			bool shift = cur_input->shift();
 			switch(ev.keyboard.keycode)
 			{
 				case ALLEGRO_KEY_LEFT:
 					if(cpos > 0)
 						--cpos;
+					if(!shift)
+						cpos2 = cpos;
 					break;
 				case ALLEGRO_KEY_RIGHT:
 					if(cpos < content.size())
 						++cpos;
+					if(!shift)
+						cpos2 = cpos;
 					break;
 				case ALLEGRO_KEY_HOME:
 					cpos = 0;
+					if(!shift)
+						cpos2 = cpos;
 					break;
 				case ALLEGRO_KEY_END:
 					cpos = u16(content.size());
+					if(!shift)
+						cpos2 = cpos;
 					break;
 				case ALLEGRO_KEY_BACKSPACE:
-					if(cpos > 0)
+					if(cpos2 != cpos)
+					{
+						content = before_sel() + after_sel();
+						cpos = cpos2 = std::min(cpos,cpos2);
+					}
+					else if(cpos > 0)
 					{
 						content = content.substr(0,cpos-1) + content.substr(cpos);
 						--cpos;
+						cpos2 = cpos;
 					}
 					break;
 				case ALLEGRO_KEY_DELETE:
-					if(cpos < content.size())
+					if(cpos2 != cpos)
+					{
+						content = before_sel() + after_sel();
+						cpos = cpos2 = std::min(cpos,cpos2);
+					}
+					else if(cpos < content.size())
 					{
 						content = content.substr(0,cpos) + content.substr(cpos+1);
 					}
@@ -1041,6 +1101,11 @@ void TextField::key_event(ALLEGRO_EVENT const& ev)
 						copy();
 					else is_char = true;
 					break;
+				case ALLEGRO_KEY_X:
+					if(cur_input->ctrl_cmd())
+						cut();
+					else is_char = true;
+					break;
 				default:
 					is_char = true;
 					break;
@@ -1053,11 +1118,11 @@ void TextField::key_event(ALLEGRO_EVENT const& ev)
 				if(badchar(c))
 					break;
 				
-				string nc = content.substr(0,cpos) + c + content.substr(cpos);
+				string nc = before_sel() + c + after_sel();
 				if(validate(content,nc,c))
 				{
 					content = nc;
-					++cpos;
+					cpos2 = cpos = std::min(cpos,cpos2)+1;
 				}
 			}
 			break;
@@ -1066,9 +1131,18 @@ void TextField::key_event(ALLEGRO_EVENT const& ev)
 	InputObject::key_event(ev);
 }
 
+void TextField::cut()
+{
+	if(cpos == cpos2) return;
+	copy();
+	content = before_sel() + after_sel();
+	cpos2 = cpos = std::min(cpos,cpos2);
+}
 void TextField::copy()
 {
-	//!!TODO add string selection and allow copying
+	if(cpos == cpos2) return;
+	auto str = in_sel();
+	al_set_clipboard_text(display, str.c_str());
 }
 void TextField::paste()
 {
@@ -1079,7 +1153,7 @@ void TextField::paste()
 		if(validate(s))
 		{
 			content = before_sel() + s + after_sel();
-			cpos += u16(s.size());
+			cpos2 = cpos = std::min(cpos,cpos2)+u16(s.size());
 		}
 		
 		al_free(str);
@@ -1087,15 +1161,19 @@ void TextField::paste()
 }
 string TextField::before_sel() const
 {
-	return content.substr(0,cpos+1);
+	return content.substr(0,std::min(cpos,cpos2));
 }
 string TextField::in_sel() const
 {
-	return "";
+	if(cpos == cpos2)
+		return "";
+	auto low = std::min(cpos,cpos2);
+	auto high = std::max(cpos,cpos2);
+	return content.substr(low,high-low);
 }
 string TextField::after_sel() const
 {
-	return content.substr(cpos);
+	return content.substr(std::max(cpos,cpos2));
 }
 
 //COMMON EVENT FUNCS

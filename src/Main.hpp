@@ -44,6 +44,7 @@ using std::optional;
 using std::nullopt;
 using std::shared_ptr;
 using std::make_shared;
+using std::format;
 
 extern std::mt19937 rng;
 u64 rand(u64 range);
@@ -125,6 +126,8 @@ enum direction
 };
 
 void log(string const& hdr, string const& msg);
+void error(string const& hdr, string const& msg);
+void fail(string const& hdr, string const& msg);
 void log(string const& msg);
 void error(string const& msg);
 void fail(string const& msg);

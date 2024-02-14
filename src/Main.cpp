@@ -10,27 +10,35 @@
 
 void log(string const& hdr, string const& msg)
 {
-	std::cout << "[" << hdr << "] " << msg << std::endl;
+	std::cout << "[LOG][" << hdr << "] " << msg << std::endl;
+}
+void error(string const& hdr, string const& msg)
+{
+	std::cerr << "[ERROR][" << hdr << "] " << msg << std::endl;
+}
+void fail(string const& hdr, string const& msg)
+{
+	std::cerr << "[FATAL][" << hdr << "] " << msg << std::endl;
+	exit(1);
 }
 void log(string const& msg)
 {
-	std::cout << "[LOG] " << msg << std::endl;
+	log("APSudoku", msg);
 }
 void error(string const& msg)
 {
-	std::cerr << "[ERROR] " << msg << std::endl;
+	error("APSudoku", msg);
 }
 void fail(string const& msg)
 {
-	std::cerr << "[FATAL] " << msg << std::endl;
-	exit(1);
+	fail("APSudoku", msg);
 }
 
 Hint::operator string() const
 {
 	auto flagstr = ap_get_itemflagstr(item_flags);
 	flagstr = flagstr ? (" "+*flagstr) : "";
-	return std::format("{} {} '{}'{} at '{}' for {}",
+	return format("{} {} '{}'{} at '{}' for {}",
 		ap_get_playername(finding_player),
 		found ? "found" : "will find",
 		ap_get_itemname(item), *flagstr,
@@ -173,7 +181,7 @@ void build_gui()
 		lifecnt->sety(GRID_Y-lifecnt->height()-2);
 		lifecnt->text_proc = [](Label& ref) -> string
 			{
-				return std::format("Lives: {}", AP_GetCurrentDeathAmnesty());
+				return format("Lives: {}", AP_GetCurrentDeathAmnesty());
 			};
 		lifecnt->vis_proc = [](GUIObject const& ref) -> bool
 			{
@@ -189,7 +197,7 @@ void build_gui()
 				if(grid->active())
 				{
 					ref.type = TYPE_NORMAL;
-					return std::format("Playing: {}", *difficulty->get_sel_text());
+					return format("Playing: {}", *difficulty->get_sel_text());
 				}
 				else
 				{
@@ -577,8 +585,18 @@ void run_events(bool& redraw)
 			redraw = true;
 			break;
 		case ALLEGRO_EVENT_DISPLAY_CLOSE:
+		{
+			if(grid->active() && ap_deathlink())
+			{
+				if(!pop_yn("Forfeit", "Quit solving current puzzle?"
+					"\nThis will count as a DeathLink death!"))
+					break;
+				do_ap_death("quit a sudoku puzzle!");
+				grid->clear();
+			}
 			program_running = false;
 			break;
+		}
 		case ALLEGRO_EVENT_DISPLAY_RESIZE:
 			al_acknowledge_resize(display);
 			on_resize();
@@ -600,45 +618,60 @@ bool events_empty()
 }
 int main(int argc, char **argv)
 {
-	log("Program Start");
-	//
-	string exepath(argv[0]);
-	string wdir;
-	auto ind = exepath.find_last_of("/\\");
-	if(ind == string::npos)
-		wdir = "";
-	else wdir = exepath.substr(0,1+ind);
-	std::filesystem::current_path(wdir);
-	log("Running in dir: \"" + wdir + "\"");
-	//
-	setup_allegro();
-	log("Allegro initialized successfully");
-	rng = std::mt19937(std::chrono::duration_cast<std::chrono::milliseconds>(
-		std::chrono::system_clock::now().time_since_epoch()).count());
-	log("Building GUI...");
-	build_gui();
-	log("GUI built successfully, launch complete");
-	
-	InputState input_state;
-	cur_input = &input_state;
-	al_start_timer(timer);
-	bool redraw = true;
-	program_running = true;
-	
-	PuzzleGen::init();
-	while(program_running)
+	try
 	{
-		if(redraw && events_empty())
+		log("Program Start");
+		//
+		string exepath(argv[0]);
+		string wdir;
+		auto ind = exepath.find_last_of("/\\");
+		if(ind == string::npos)
+			wdir = "";
+		else wdir = exepath.substr(0,1+ind);
+		std::filesystem::current_path(wdir);
+		log("Running in dir: \"" + wdir + "\"");
+		//
+		setup_allegro();
+		log("Allegro initialized successfully");
+		rng = std::mt19937(std::chrono::duration_cast<std::chrono::milliseconds>(
+			std::chrono::system_clock::now().time_since_epoch()).count());
+		log("Building GUI...");
+		build_gui();
+		log("...built!");
+		PuzzleGen::init();
+		
+		InputState input_state;
+		cur_input = &input_state;
+		al_start_timer(timer);
+		bool redraw = true;
+		program_running = true;
+		while(program_running)
 		{
-			gui_objects[curscr].run();
-			dlg_draw();
-			dlg_render();
-			redraw = false;
+			if(redraw && events_empty())
+			{
+				gui_objects[curscr].run();
+				dlg_draw();
+				dlg_render();
+				redraw = false;
+			}
+			run_events(redraw);
 		}
-		run_events(redraw);
+		PuzzleGen::shutdown();
+		return 0;
 	}
-	PuzzleGen::shutdown();
-	return 0;
+	catch(sudoku_exception& e)
+	{
+		fail(format("Sudoku Error: {}",e.what()));
+	}
+	catch(std::exception& e)
+	{
+		fail(format("Unknown Error: {}",e.what()));
+	}
+	catch(...)
+	{
+		fail("Unknown Error");
+	}
+	return 1;
 }
 
 void init_fonts()

@@ -92,11 +92,11 @@ PuzzleQueue PuzzleGenFactory::puzzles[3];
 void PuzzleGenFactory::run()
 {
 	PuzzleQueue& queue = puzzles[d];
-	while(running)
+	while(running && program_running)
 	{
 		if(queue.atm_size() >= KEEP_READY)
 		{
-			al_rest(5);
+			al_rest(0.5);
 			continue;
 		}
 		
@@ -138,6 +138,7 @@ BuiltPuzzle PuzzleGenFactory::get(Difficulty d)
 }
 void PuzzleGenFactory::init()
 {
+	log("Launching puzzle factories...");
 	for(u8 q = 0; q < NUM_E_FAC; ++q)
 	{
 		PuzzleGenFactory& fac = e_factories[q];
@@ -162,13 +163,16 @@ void PuzzleGenFactory::init()
 		fac.runtime = std::thread(&PuzzleGenFactory::run, &fac);
 		factories.insert(&fac);
 	}
+	log("...launched!");
 }
 void PuzzleGenFactory::shutdown()
 {
+	log("Closing puzzle factories...");
 	for(PuzzleGenFactory* f : factories)
 		f->running = false;
 	for(PuzzleGenFactory* f : factories)
 		f->runtime.join();
+	log("...closed!");
 }
 
 void init()

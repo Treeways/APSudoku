@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <random>
 #include <fstream>
+#include <iostream>
 #include <json/json.h>
 #include <json/reader.h>
 #include <json/value.h>
@@ -75,6 +76,8 @@ void (*setreplyfunc)(AP_SetReply) = nullptr;
 std::function<void(std::string,std::string)> recvdeath2;
 std::function<void()> onConnectedFunc;
 std::function<void(std::string)> onConnectErrFunc;
+std::function<void(std::string)> onLogMessage;
+std::function<void(std::string)> onErrMessage;
 
 // Serverdata Management
 std::map<std::string,AP_DataType> map_serverdata_typemanage;
@@ -123,6 +126,19 @@ void updateAPTags();
 int getDeathAmnesty();
 // PRIV Func Declarations End
 
+//LOCAL EDITS
+void AP_Log(std::string const& str)
+{
+	if(onLogMessage)
+		onLogMessage(str);
+	else std::cout << "AP: " << str << std::endl;
+}
+void AP_Error(std::string const& str)
+{
+	if(onErrMessage)
+		onErrMessage(str);
+	else std::cerr << "AP: " << str << std::endl;
+}
 void AP_Disconnect() //Disconnect from a slot, call AP_Init again to reconnect
 {
 	init = false;
@@ -206,16 +222,16 @@ void AP_Init(const char* ip, const char* game, const char* player_name, const ch
 
     if (!strcmp(ip,"")) {
         ip = "archipelago.gg:38281";
-        printf("AP: Using default Server Address: '%s'\n", ip);
+        AP_Log(std::format("Using default Server Address: '{}'", ip));
     } else {
-        printf("AP: Using Server Address: '%s'\n", ip);
+        AP_Log(std::format("Using Server Address: '{}'", ip));
     }
     ap_ip = ip;
     ap_game = game;
     ap_player_name = player_name;
     ap_passwd = passwd;
 
-    printf("AP: Initializing...\n");
+    AP_Log("Initializing...");
 
     //Connect to server
     ix::initNetSystem();
@@ -232,11 +248,11 @@ void AP_Init(const char* ip, const char* game, const char* player_name, const ch
             }
             else if (msg->type == ix::WebSocketMessageType::Open)
             {
-                printf("AP: Connected to Archipelago\n");
+                AP_Log("Connected to Archipelago");
             }
             else if(msg->type == ix::WebSocketMessageType::Close)
             {
-                printf("AP: Disconnected\n");
+                AP_Log("Disconnected");
                 if(!disconnecting)
                     err = true;
             }
@@ -247,9 +263,9 @@ void AP_Init(const char* ip, const char* game, const char* player_name, const ch
                     itr->second->status = AP_RequestStatus::Error;
                     itr = map_server_data.erase(itr);
                 }
-                printf("AP: Error connecting to Archipelago. Retries: %d\n", msg->errorInfo.retries-1);
+                AP_Error(std::format("Error connecting to Archipelago. Retries: {}", msg->errorInfo.retries-1));
                 if (msg->errorInfo.retries-1 >= 2 && isSSL && !ssl_success) {
-                    printf("AP: SSL connection failed. Attempting unencrypted...\n");
+                    AP_Error("SSL connection failed. Attempting unencrypted...");
                     webSocket.setUrl("ws://" + ap_ip);
                     isSSL = false;
                 }
@@ -345,7 +361,7 @@ void AP_SendItem(int64_t idx) {
 }
 void AP_SendItem(std::set<int64_t> const& locations) {
     for (int64_t idx : locations) {
-        printf("AP: Checked '%s'.\n", getLocationName(ap_game, idx).c_str());
+        AP_Log(std::format("Checked '{}'.", getLocationName(ap_game, idx).c_str()));
     }
     if (multiworld) {
         Json::Value req_t;
@@ -467,6 +483,14 @@ void AP_SetLocationCheckedCallback(std::function<void(int64_t)> f_loccheckrecv) 
 
 void AP_SetLocationInfoCallback(std::function<void(std::vector<AP_NetworkItem>)> f_locinfrecv) {
     locinfofunc = f_locinfrecv;
+}
+void AP_SetLoggingCallback(std::function<void(std::string const&)> proc)
+{
+	onLogMessage = proc;
+}
+void AP_SetLoggingErrorCallback(std::function<void(std::string const&)> proc)
+{
+	onErrMessage = proc;
 }
 
 void AP_SetDeathLinkRecvCallback(void (*f_deathrecv)()) {
@@ -709,7 +733,7 @@ bool parse_response(std::string msg, std::string &request) {
             ssl_success = auth && isSSL;
             refused = false;
 
-            printf("AP: Authenticated\n");
+            AP_Log("Authenticated");
             ap_player_id = root[i]["slot"].asInt();
             ap_player_team = root[i]["team"].asInt();
             ap_slot_game = root[i]["slot_info"][std::to_string(ap_player_id)]["game"].asString();
@@ -774,7 +798,7 @@ bool parse_response(std::string msg, std::string &request) {
             // Get datapackage for outdated games
             for (std::pair<std::string,std::string> game_pkg : info.datapackage_checksums) {
                 if (datapkg_cache.get("games", Json::objectValue).get(game_pkg.first, Json::objectValue).get("checksum", "_None") != game_pkg.second) {
-                    printf("AP: Cache outdated for game: %s\n", game_pkg.first.c_str());
+                    AP_Log(std::format("Cache outdated for game: {}", game_pkg.first.c_str()));
                     datapkg_outdated_games.insert(game_pkg.first);
                 }
             }
@@ -924,7 +948,7 @@ bool parse_response(std::string msg, std::string &request) {
             if (locinfofunc) {
                 locinfofunc(locations);
             } else {
-                printf("AP: Received LocationInfo but no handler registered!\n");
+                AP_Error("Received LocationInfo but no handler registered!");
             }
         }
         else if (cmd == "ReceivedItems")
@@ -977,7 +1001,7 @@ bool parse_response(std::string msg, std::string &request) {
         {
             auth = false;
             refused = true;
-            printf("AP: Archipelago Server has refused connection. Check Password / Name / IP and restart the Game.\n");
+            AP_Error("Archipelago Server has refused connection. Check Password / Name / IP and restart the Game.");
 			if(onConnectErrFunc)
 				onConnectErrFunc("Archipelago: Connection Refused (Check connection info)");
             fflush(stdout);
@@ -1009,7 +1033,7 @@ bool parse_response(std::string msg, std::string &request) {
 
 void APSend(std::string req) {
     if (webSocket.getReadyState() != ix::ReadyState::Open) {
-        printf("AP: Not Connected. Send will fail.\n");
+        AP_Error("Not Connected. Send will fail.");
         return;
     }
     webSocket.send(req);
@@ -1029,7 +1053,7 @@ void parseDataPkg(Json::Value new_datapkg) {
         Json::Value game_data = new_datapkg["games"][game];
         datapkg_cache["games"][game] = game_data;
         datapkg_outdated_games.erase(game);
-        printf("AP: Game Cache updated for %s\n", game.c_str());
+        AP_Log(std::format("Game Cache updated for {}", game.c_str()));
     }
     WriteFileJSON(datapkg_cache, datapkg_cache_path);
     parseDataPkg();

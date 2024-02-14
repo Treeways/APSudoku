@@ -65,6 +65,8 @@ void AP_SetLocationCheckedCallback(std::function<void(int64_t)> f_loccheckrecv);
 void AP_SetDeathLinkRecvCallback(void (*f_deathrecv)());
 void AP_SetDeathLinkRecvCallback(std::function<void(std::string,std::string)> proc);
 
+void AP_SetLoggingCallback(std::function<void(std::string const&)> proc);
+void AP_SetLoggingErrorCallback(std::function<void(std::string const&)> proc);
 // Called on 'Connected'
 void AP_SetConnectedCallback(std::function<void()>);
 // Called with an error message if a connection error occurs
@@ -241,3 +243,6 @@ std::map<int, AP_NetworkPlayer>& AP_GetPlayerMap();
 std::map<std::pair<std::string,int64_t>, std::string>& AP_GetLocationMap();
 std::map<std::pair<std::string,int64_t>, std::string>& AP_GetItemMap();
 std::set<int64_t> const& AP_GetMissingLocations();
+void AP_Log(std::string const& str);
+void AP_Error(std::string const& str);
+

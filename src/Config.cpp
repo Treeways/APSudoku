@@ -139,7 +139,7 @@ optional<string> get_config_str(char const* sec, char const* key)
 
 void set_config_hex(char const* sec, char const* key, u32 val)
 {
-	set_config_str(sec, key, std::format("0x{:08X}", val));
+	set_config_str(sec, key, format("0x{:08X}", val));
 }
 optional<u32> get_config_hex(char const* sec, char const* key)
 {

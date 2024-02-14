@@ -19,6 +19,15 @@ static void ignore_loc_callback(vector<AP_NetworkItem> vec)
 	AP_SetLocationInfoCallback(nullptr);
 }
 
+
+static void on_ap_log(string const& str)
+{
+	log("APCpp", str);
+}
+static void on_ap_err(string const& str)
+{
+	error("APCpp", str);
+}
 static void on_item_clear()
 {
 	missing_progressive.clear();
@@ -52,7 +61,7 @@ static void on_location_checked(int loc)
 }
 static void on_death_recv(string src, string cause)
 {
-	string death_str = std::format("{} died to {}, bringing you down with them!",src,cause);
+	string death_str = format("{} died to {}, bringing you down with them!",src,cause);
 	log("DeathLink",death_str);
 	pending_deaths.push_back(death_str);
 }
@@ -85,8 +94,8 @@ bool do_ap_death(string cause)
 	bool ret = false;
 	if(AP_DeathLinkSend(cause))
 	{
-		log("DeathLink", std::format("Sent death from: You {}", cause));
-		pop_inf("You Died!", std::format("You perished because:\nYou {}", cause));
+		log("DeathLink", format("Sent death from: You {}", cause));
+		pop_inf("You Died!", format("You perished because:\nYou {}", cause));
 		ret = true;
 	}
 	return ret;
@@ -103,7 +112,7 @@ void do_ap_connect(string const& _ip, string const& _port,
 	string ip = _ip.empty() ? "archipelago.gg" : _ip;
 	if(port.size() != 5 || port.find_first_not_of("0123456789") != string::npos)
 	{
-		errtxt = std::format("Port '{}' is invalid!", port);
+		errtxt = format("Port '{}' is invalid!", port);
 		return;
 	}
 	if(slot.empty())
@@ -112,17 +121,19 @@ void do_ap_connect(string const& _ip, string const& _port,
 		return;
 	}
 	
-	log(std::format("Connecting: '{}:{}', '{}', '{}'", ip,port,slot,pwd));
+	log(format("Connecting: '{}:{}', '{}', '{}'", ip,port,slot,pwd));
 	AP_SetDeathLinkAlias(slot + "_APSudoku");
+	AP_SetLoggingCallback(on_ap_log);
+	AP_SetLoggingErrorCallback(on_ap_err);
 	
-	string ip_port = std::format("{}:{}",ip,port);
+	string ip_port = format("{}:{}",ip,port);
 	AP_Init(ip_port.c_str(), "", slot.c_str(), pwd.c_str());
 	AP_SetDeathLinkForced(deathlink.has_value());
 	AP_SetDeathAmnestyForced(deathlink.value_or(0));
 	set<string> tags = {"Tracker","HintGame"};
 	AP_SetTags(tags);
 	
-	log(std::format("\t with tags: {}", set_string(AP_GetTags())));
+	log(format("\t with tags: {}", set_string(AP_GetTags())));
 	
 	AP_SetItemClearCallback(on_item_clear);
 	AP_SetItemRecvCallback(on_item_receive);
@@ -147,7 +158,7 @@ bool ap_deathlink()
 void grant_hint()
 {
 	AP_GetServerDataRequest req;
-	req.key = std::format("_read_hints_{}_{}", AP_GetPlayerTeam(), AP_GetPlayerID());
+	req.key = format("_read_hints_{}_{}", AP_GetPlayerTeam(), AP_GetPlayerID());
 	req.type = AP_DataType::Raw;
 	req.value = new string();
 	AP_GetServerData(&req);

@@ -364,7 +364,7 @@ struct TextField : public InputObject
 {
 	string content;
 	FontDef font;
-	u16 cpos;
+	u16 cpos, cpos2; //cpos is cursor, cpos2 is anchor of selection
 	static const u16 pad = 2;
 	std::function<bool(string const&,string const&,char)> onValidate;
 	
@@ -376,16 +376,16 @@ struct TextField : public InputObject
 	string get_str() const;
 	
 	TextField() : InputObject(0,0,64,0), content(),
-		font(FontDef(-20, false, BOLD_NONE)), cpos(0)
+		font(FontDef(-20, false, BOLD_NONE)), cpos(0), cpos2(0)
 	{}
 	TextField(string const& txt) : InputObject(0,0,64,0), content(txt),
-		font(FontDef(-20, false, BOLD_NONE)), cpos(0)
+		font(FontDef(-20, false, BOLD_NONE)), cpos(0), cpos2(0)
 	{}
 	TextField(string const& txt, FontDef fd)
-		: InputObject(0,0,64,0), content(txt), font(fd), cpos(0)
+		: InputObject(0,0,64,0), content(txt), font(fd), cpos(0), cpos2(0)
 	{}
 	TextField(u16 X, u16 Y, u16 W, string const& txt, FontDef fd)
-		: InputObject(X,Y,W,0), content(txt), font(fd), cpos(0)
+		: InputObject(X,Y,W,0), content(txt), font(fd), cpos(0), cpos2(0)
 	{}
 	
 	bool validate(string const& ostr, string const& nstr, char c);
@@ -393,8 +393,9 @@ struct TextField : public InputObject
 	void key_event(ALLEGRO_EVENT const& ev) override;
 private:
 	bool validate(string& pastestr);
-	void paste();
+	void cut();
 	void copy();
+	void paste();
 	string before_sel() const;
 	string in_sel() const;
 	string after_sel() const;
