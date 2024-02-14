@@ -8,22 +8,40 @@
 #include "Network.hpp"
 #include "PuzzleGen.hpp"
 
+string build_ccode(CCFG fg, CCBG bg)
+{
+	stringstream s;
+	s << "\x1B[";
+	if(bg != LOG_BG_NONE)
+		s << bg << ';';
+	s << fg << "m";
+	return s.str();
+}
+string default_ccode = build_ccode(LOG_FG_B_PURPLE,LOG_BG_NONE);
 void log(string const& hdr, string const& msg)
 {
-	std::cout << "[LOG][" << hdr << "] " << msg << std::endl;
+	std::cout << default_ccode << "[LOG][" << hdr << "] " << msg << CCODE_REVERT << std::endl;
+}
+void clog(string const& hdr, string const& msg, string const& ccode)
+{
+	std::cout << ccode << "[LOG][" << hdr << "] " << msg << CCODE_REVERT << std::endl;
 }
 void error(string const& hdr, string const& msg)
 {
-	std::cerr << "[ERROR][" << hdr << "] " << msg << std::endl;
+	std::cerr << build_ccode(LOG_FG_RED) << "[ERROR][" << hdr << "] " << msg << CCODE_REVERT << std::endl;
 }
 void fail(string const& hdr, string const& msg)
 {
-	std::cerr << "[FATAL][" << hdr << "] " << msg << std::endl;
+	std::cerr << build_ccode(LOG_FG_RED) << "[FATAL][" << hdr << "] " << msg << CCODE_REVERT << std::endl;
 	exit(1);
 }
 void log(string const& msg)
 {
 	log("APSudoku", msg);
+}
+void clog(string const& msg, string const& ccode)
+{
+	clog("APSudoku", msg, ccode);
 }
 void error(string const& msg)
 {

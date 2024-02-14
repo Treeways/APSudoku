@@ -22,7 +22,7 @@ static void ignore_loc_callback(vector<AP_NetworkItem> vec)
 
 static void on_ap_log(string const& str)
 {
-	log("APCpp", str);
+	clog("APCpp", str, build_ccode(LOG_FG_CYAN));
 }
 static void on_ap_err(string const& str)
 {
@@ -217,7 +217,7 @@ void grant_hint()
 		AP_SetLocationInfoCallback(ignore_loc_callback);
 		AP_SendLocationScouts({loc},2);
 		Hint h(item);
-		log(h);
+		clog(h,build_ccode(LOG_FG_YELLOW));
 		pop_inf("Hint Earned:",h);
 	}
 	

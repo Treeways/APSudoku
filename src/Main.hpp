@@ -125,9 +125,54 @@ enum direction
 	NUM_DIRS
 };
 
+enum CCFG
+{
+	LOG_FG_BLACK = 30,
+	LOG_FG_RED,
+	LOG_FG_GREEN,
+	LOG_FG_YELLOW,
+	LOG_FG_BLUE,
+	LOG_FG_PURPLE,
+	LOG_FG_CYAN,
+	LOG_FG_WHITE,
+	LOG_FG_B_BLACK = 90,
+	LOG_FG_B_RED,
+	LOG_FG_B_GREEN,
+	LOG_FG_B_YELLOW,
+	LOG_FG_B_BLUE,
+	LOG_FG_B_PURPLE,
+	LOG_FG_B_CYAN,
+	LOG_FG_B_WHITE,
+};
+enum CCBG
+{
+	LOG_BG_NONE,
+	LOG_BG_BLACK = 40,
+	LOG_BG_RED,
+	LOG_BG_GREEN,
+	LOG_BG_YELLOW,
+	LOG_BG_BLUE,
+	LOG_BG_PURPLE,
+	LOG_BG_CYAN,
+	LOG_BG_WHITE,
+	LOG_BG_B_BLACK = 100,
+	LOG_BG_B_RED,
+	LOG_BG_B_GREEN,
+	LOG_BG_B_YELLOW,
+	LOG_BG_B_BLUE,
+	LOG_BG_B_PURPLE,
+	LOG_BG_B_CYAN,
+	LOG_BG_B_WHITE,
+};
+
+string build_ccode(CCFG fg, CCBG bg = LOG_BG_NONE);
+extern string default_ccode;
+inline const string CCODE_REVERT = "\033[0m";
+void clog(string const& hdr, string const& msg, string const& ccode);
 void log(string const& hdr, string const& msg);
 void error(string const& hdr, string const& msg);
 void fail(string const& hdr, string const& msg);
+void clog(string const& msg, string const& ccode);
 void log(string const& msg);
 void error(string const& msg);
 void fail(string const& msg);
