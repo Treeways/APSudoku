@@ -66,7 +66,7 @@ private:
 	static PuzzleQueue puzzles[3];
 	
 	Difficulty d;
-	bool running;
+	volatile bool running;
 	std::thread runtime;
 	
 	void run();
@@ -94,22 +94,27 @@ void PuzzleGenFactory::run()
 	PuzzleQueue& queue = puzzles[d];
 	while(running && program_running)
 	{
-		if(queue.atm_size() >= KEEP_READY)
+		try
 		{
-			al_rest(0.5);
-			continue;
+			if(queue.atm_size() >= KEEP_READY)
+			{
+				al_rest(0.05);
+				continue;
+			}
+			
+			PuzzleGrid puzzle(d); //generate the puzzle at current difficulty
+			//
+			BuiltPuzzle puz;
+			for(PuzzleCell const& cell : puzzle.cells)
+				puz.emplace_back(cell.val, cell.given);
+			
+			queue.lock();
+			queue.give(std::move(puz));
+			queue.unlock();
+			al_rest(0.05);
 		}
-		
-		PuzzleGrid puzzle(d); //generate the puzzle at current difficulty
-		//
-		BuiltPuzzle puz;
-		for(PuzzleCell const& cell : puzzle.cells)
-			puz.emplace_back(cell.val, cell.given);
-		
-		queue.lock();
-		queue.give(std::move(puz));
-		queue.unlock();
-		al_rest(0.05);
+		catch(ignore_exception&)
+		{}
 	}
 }
 BuiltPuzzle PuzzleGenFactory::get(Difficulty d)
@@ -296,6 +301,8 @@ bool PuzzleGrid::solve(bool check_unique)
 	history.emplace_back(); //add first step
 	while(true)
 	{
+		if(!program_running)
+			throw ignore_exception();
 		GridFillHistory& step = history.back();
 		// Trim the options, accounting for anything we've already failed trying
 		auto [rem,cnt] = trim_opts(step.checked);
@@ -367,6 +374,8 @@ void PuzzleGrid::build(Difficulty d)
 	history.emplace_back();
 	while(true)
 	{
+		if(!program_running)
+			throw ignore_exception();
 		GridGivenHistory& step = history.back();
 		set<u8> possible = givens;
 		for(u8 q : step.checked)

@@ -568,7 +568,7 @@ void dlg_render()
 
 void setup_allegro();
 void save_cfg();
-bool program_running = true;
+volatile bool program_running = true;
 u64 cur_frame = 0;
 void run_events(bool& redraw)
 {
@@ -656,9 +656,13 @@ int main(int argc, char **argv)
 			}
 			run_events(redraw);
 		}
+		
+		al_destroy_display(display);
 		PuzzleGen::shutdown();
 		return 0;
 	}
+	catch(ignore_exception&)
+	{}
 	catch(sudoku_exception& e)
 	{
 		fail(format("Sudoku Error: {}",e.what()));

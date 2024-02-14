@@ -67,7 +67,7 @@ void run_events(bool& redraw);
 bool events_empty();
 void on_resize();
 
-extern bool program_running;
+extern volatile bool program_running;
 extern bool settings_unsaved;
 
 struct Hint
@@ -143,6 +143,13 @@ public:
 	{}
 private:
 	string msg;
+};
+class ignore_exception : public sudoku_exception
+{
+public:
+	ignore_exception()
+		: sudoku_exception("IGNORE")
+	{}
 };
 
 #include "Util.hpp"
