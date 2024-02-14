@@ -86,7 +86,7 @@ enum Screen
 {
 	SCR_SUDOKU,
 	SCR_CONNECT,
-	SCR_SETTINGS,
+	//SCR_SETTINGS,
 	NUM_SCRS
 };
 enum EntryMode

@@ -127,11 +127,11 @@ void swap_screen(Screen scr)
 {
 	if(curscr == scr)
 		return;
-	if(curscr == SCR_SETTINGS && settings_unsaved)
-	{
-		if(!pop_yn("Change pages", "Swap pages without saving your settings?"))
-			return;
-	}
+	// if(curscr == SCR_SETTINGS && settings_unsaved)
+	// {
+		// if(!pop_yn("Change pages", "Swap pages without saving your settings?"))
+			// return;
+	// }
 	curscr = scr;
 }
 
@@ -165,10 +165,10 @@ void build_gui()
 			}
 		swap_btns[0] = make_shared<Button>("Sudoku", font_l);
 		swap_btns[1] = make_shared<Button>("Archipelago", font_l);
-		swap_btns[2] = make_shared<Button>("Settings", font_l);
+		//swap_btns[2] = make_shared<Button>("Settings", font_l);
 		ON_SWAP_BTN(swap_btns[0], SCR_SUDOKU);
 		ON_SWAP_BTN(swap_btns[1], SCR_CONNECT);
-		ON_SWAP_BTN(swap_btns[2], SCR_SETTINGS);
+		//ON_SWAP_BTN(swap_btns[2], SCR_SETTINGS);
 		shared_ptr<Column> sb_column = make_shared<Column>(BUTTON_X, BUTTON_Y, 0, 2, ALLEGRO_ALIGN_CENTER);
 		for(shared_ptr<Button> const& b : swap_btns)
 			sb_column->add(b);
