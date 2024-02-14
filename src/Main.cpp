@@ -285,9 +285,9 @@ void build_gui()
 						}
 						else
 						{
-							pop_inf("Wrong", "Puzzle solution incorrect!");
 							if(do_ap_death("solved a sudoku wrong!"))
 								grid->exit();
+							else pop_inf("Wrong", "Puzzle solution incorrect!");
 						}
 						break;
 				}
@@ -621,6 +621,8 @@ int main(int argc, char **argv)
 	al_start_timer(timer);
 	bool redraw = true;
 	program_running = true;
+	
+	PuzzleGen::init();
 	while(program_running)
 	{
 		if(redraw && events_empty())
@@ -632,6 +634,7 @@ int main(int argc, char **argv)
 		}
 		run_events(redraw);
 	}
+	PuzzleGen::shutdown();
 	return 0;
 }
 
