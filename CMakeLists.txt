@@ -92,6 +92,7 @@ add_executable(APSudoku
 	src/Font.cpp
 	src/Theme.cpp
 	src/Network.cpp
+	src/PuzzleGen.cpp
 	src/Config.cpp
 	src/Util.cpp
 	src/SudokuGrid.cpp

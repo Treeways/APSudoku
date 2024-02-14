@@ -18,6 +18,7 @@
 #include <memory>
 #include <tuple>
 #include <stdint.h>
+#include <iostream>
 #include <sstream>
 #include <chrono>
 #include <random>
@@ -30,6 +31,7 @@ typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
 typedef unsigned int uint;
+using std::pair;
 using std::tuple;
 using std::string;
 using std::stringstream;

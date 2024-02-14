@@ -6,6 +6,7 @@
 #include "Config.hpp"
 #include "SudokuGrid.hpp"
 #include "Network.hpp"
+#include "PuzzleGen.hpp"
 
 void log(string const& hdr, string const& msg)
 {
@@ -554,21 +555,15 @@ void dlg_render()
 
 void init_grid()
 {
-	//!TODO this is just a test grid inserted on launch
-	for(int q = 0; q < 9; ++q)
+	auto vec = PuzzleGen::gen_puzzle();
+	for(u8 q = 0; q < 9*9; ++q)
 	{
-		Sudoku::Cell* c = grid->get(0,q);
-		c->val = q+1;
-		if(q%2)
-			c->flags |= CFL_GIVEN;
-		
-		c = grid->get(1,q);
-		for(int p = 0; p <= q; ++p)
-			c->center_marks[p] = true;
-		
-		c = grid->get(2,q);
-		for(int p = 0; p <= q; ++p)
-			c->corner_marks[p] = true;
+		Sudoku::Cell& c = grid->cells[q];
+		auto [v,g] = vec[q];
+		c.val = v;
+		if(g)
+			c.flags |= CFL_GIVEN;
+		else c.flags &= ~CFL_GIVEN;
 	}
 }
 void setup_allegro();
