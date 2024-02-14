@@ -45,7 +45,7 @@ std::uint64_t ap_uuid = 0;
 std::set<std::string> ap_tags;
 std::set<int64_t> missing_locs;
 std::mt19937 rando;
-AP_NetworkVersion client_version = {0,2,6}; // Default for compatibility reasons
+AP_NetworkVersion client_version = {0,4,4}; // Default for compatibility reasons
 
 //Deathlink Stuff
 bool deathlinkstat = false;
