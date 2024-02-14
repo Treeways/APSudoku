@@ -6,6 +6,8 @@
 static Json::Reader reader;
 deque<string> pending_deaths;
 
+extern shared_ptr<Label> connect_error;
+
 map<int,AP_NetworkItem> missing_progressive, missing_basic;
 
 static bool wait_conn()
@@ -21,6 +23,10 @@ static void on_item_clear()
 {
 	missing_progressive.clear();
 	missing_basic.clear();
+}
+static void on_connect_err(string err)
+{
+	connect_error->text = err;
 }
 static void on_connected()
 {
@@ -89,22 +95,15 @@ void do_ap_disconnect()
 {
 	AP_Disconnect();
 }
-void do_ap_connect(string& errtxt, string const& ip, string const& port,
+void do_ap_connect(string const& _ip, string const& _port,
 	string const& slot, string const& pwd, optional<int> deathlink)
 {
-	if(port.empty())
-	{
-		errtxt = "Port is required!";
-		return;
-	}
+	string& errtxt = connect_error->text;
+	string port = _port.empty() ? "38281" : _port;
+	string ip = _ip.empty() ? "archipelago.gg" : _ip;
 	if(port.size() != 5 || port.find_first_not_of("0123456789") != string::npos)
 	{
 		errtxt = std::format("Port '{}' is invalid!", port);
-		return;
-	}
-	if(ip.empty())
-	{
-		errtxt = "IP is required!";
 		return;
 	}
 	if(slot.empty())
@@ -131,6 +130,7 @@ void do_ap_connect(string& errtxt, string const& ip, string const& port,
 	AP_SetDeathLinkRecvCallback(on_death_recv);
 	AP_SetLocationInfoCallback(nullptr);
 	AP_SetConnectedCallback(on_connected);
+	AP_OnConnectError(on_connect_err);
 	AP_Start();
 	errtxt.clear();
 }

@@ -73,7 +73,8 @@ std::function<void(std::vector<AP_NetworkItem>)> locinfofunc;
 void (*recvdeath)() = nullptr;
 void (*setreplyfunc)(AP_SetReply) = nullptr;
 std::function<void(std::string,std::string)> recvdeath2;
-std::function<void()> onconnectedfunc;
+std::function<void()> onConnectedFunc;
+std::function<void(std::string)> onConnectErrFunc;
 
 // Serverdata Management
 std::map<std::string,AP_DataType> map_serverdata_typemanage;
@@ -477,9 +478,12 @@ void AP_SetDeathLinkRecvCallback(std::function<void(std::string,std::string)> pr
 
 void AP_SetConnectedCallback(std::function<void()> proc)
 {
-	onconnectedfunc = proc;
+	onConnectedFunc = proc;
 }
-
+void AP_OnConnectError(std::function<void(std::string)> proc)
+{
+	onConnectErrFunc = proc;
+}
 void AP_RegisterSlotDataIntCallback(std::string key, void (*f_slotdata)(int)) {
     map_slotdata_callback_int[key] = f_slotdata;
     slotdata_strings.push_back(key);
@@ -787,8 +791,8 @@ bool parse_response(std::string msg, std::string &request) {
                 req_t.append(sync);
             }
             request = writer.write(req_t);
-			if(onconnectedfunc)
-				onconnectedfunc();
+			if(onConnectedFunc)
+				onConnectedFunc();
             return true;
         }
         else if (cmd == "DataPackage")
@@ -974,6 +978,8 @@ bool parse_response(std::string msg, std::string &request) {
             auth = false;
             refused = true;
             printf("AP: Archipelago Server has refused connection. Check Password / Name / IP and restart the Game.\n");
+			if(onConnectErrFunc)
+				onConnectErrFunc("Archipelago: Connection Refused (Check connection info)");
             fflush(stdout);
         }
         else if (cmd == "Bounced")

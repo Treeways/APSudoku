@@ -401,11 +401,6 @@ namespace Sudoku
 							select(&cells[ind]);
 						}
 						break;
-					case ALLEGRO_KEY_PAD_MINUS:
-						//!TODO remove cheat
-						for(Cell& c : cells)
-							c.val = c.solution;
-						break;
 					case ALLEGRO_KEY_TAB:
 						if(!mode_mod())
 							mode = EntryMode((mode+1)%NUM_ENT);
@@ -455,6 +450,15 @@ namespace Sudoku
 		selected.clear();
 		focus_cell = nullptr;
 	}
+	void Grid::deselect(Cell* c)
+	{
+		if(!find(c))
+			throw sudoku_exception("Cannot deselect cell not from this grid!");
+		selected.erase(c);
+		c->flags &= ~CFL_SELECTED;
+		if(focus_cell == c)
+			focus_cell = nullptr;
+	}
 	void Grid::select(Cell* c)
 	{
 		if(!find(c))
@@ -499,6 +503,24 @@ namespace Sudoku
 			case MOUSE_LDOWN:
 				if((ret & MRET_TAKEFOCUS) || focused())
 				{
+					if(Cell* c = get_hov())
+						select(c);
+				}
+				break;
+			case MOUSE_RCLICK:
+				ret |= MRET_TAKEFOCUS;
+			[[fallthrough]];
+			case MOUSE_RDOWN:
+				if(!((ret & MRET_TAKEFOCUS) || focused()))
+					break;
+				if(cur_input->shift() || cur_input->ctrl_cmd())
+				{
+					if(Cell* c = get_hov())
+						deselect(c);
+				}
+				else
+				{
+					deselect();
 					if(Cell* c = get_hov())
 						select(c);
 				}

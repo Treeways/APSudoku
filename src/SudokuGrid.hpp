@@ -67,6 +67,7 @@ namespace Sudoku
 		void key_event(ALLEGRO_EVENT const& ev) override;
 		
 		void deselect();
+		void deselect(Cell* c);
 		void select(Cell* c);
 		set<Cell*> get_selected() const {return selected;}
 		

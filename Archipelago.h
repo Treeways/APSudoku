@@ -67,6 +67,8 @@ void AP_SetDeathLinkRecvCallback(std::function<void(std::string,std::string)> pr
 
 // Called on 'Connected'
 void AP_SetConnectedCallback(std::function<void()>);
+// Called with an error message if a connection error occurs
+void AP_OnConnectError(std::function<void(std::string)>);
 
 // Parameter Function receives Slotdata of respective type
 void AP_RegisterSlotDataIntCallback(std::string, void (*f_slotdata)(int));

@@ -349,11 +349,11 @@ void build_gui()
 				{
 					return validate_alphanum(o,n,c) || c == '.';
 				}},
-			{"Port:","59052", [](string const& o, string const& n, char c)
+			{"Port:","", [](string const& o, string const& n, char c)
 				{
 					return validate_numeric(o,n,c) && n.size() <= 5;
 				}},
-			{"Slot:","Emily",nullptr},
+			{"Slot:","",nullptr},
 			{"Passwd:","",nullptr}
 		};
 		ap_fields.clear();
@@ -435,12 +435,15 @@ void build_gui()
 						ref.flags |= FL_SELECTED;
 						ref.focus();
 						string& errtxt = connect_error->text;
-						do_ap_connect(errtxt, ap_fields[0]->get_str(),
+						do_ap_connect(ap_fields[0]->get_str(),
 							ap_fields[1]->get_str(), ap_fields[2]->get_str(),
 							ap_fields[3]->get_str(), deathlink_cbox->selected() ? optional<int>(deathlink_amnesty->get_int()) : nullopt);
 						
 						if(!errtxt.empty())
+						{
+							ref.flags &= ~FL_SELECTED;
 							return MRET_OK; //failed, error handled
+						}
 						auto status = AP_GetConnectionStatus();
 						
 						optional<u8> ret;

@@ -108,7 +108,6 @@ void PuzzleGenFactory::run()
 		
 		queue.lock();
 		queue.give(std::move(puz));
-		log(std::format("[PUZ {}] +1 ({})", (u16)d, (u16)queue.size()));
 		queue.unlock();
 		al_rest(0.05);
 	}
@@ -133,7 +132,6 @@ BuiltPuzzle PuzzleGenFactory::get(Difficulty d)
 	
 	BuiltPuzzle puz = queue.take();
 	
-	log(std::format("[PUZ {}] -1 ({})", (u16)d, (u16)queue.size()));
 	queue.unlock();
 	
 	return puz;
