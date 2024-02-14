@@ -162,3 +162,12 @@ optional<ALLEGRO_COLOR> get_config_col(char const* sec, char const* key)
 	return hex_to_col(*v);
 }
 
+void add_config_comment(char const* sec, char const* comment)
+{
+	al_add_config_comment(config, sec, comment);
+}
+void add_config_section(char const* sec)
+{
+	al_add_config_section(config, sec);
+}
+

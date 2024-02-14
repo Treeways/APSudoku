@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.4)
 project(APCpp)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CONFIGURATION_TYPES Debug RelWithDebInfo CACHE STRING INTERNAL FORCE)
+set(CMAKE_CONFIGURATION_TYPES Release Debug RelWithDebInfo CACHE STRING INTERNAL FORCE)
 
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
@@ -113,7 +113,7 @@ option(WANT_TTF "" ON)
 option(WANT_PRIMITIVES "" ON)
 
 add_subdirectory(allegro5)
-set(CMAKE_CONFIGURATION_TYPES Debug RelWithDebInfo CACHE STRING INTERNAL FORCE)
+set(CMAKE_CONFIGURATION_TYPES Release Debug RelWithDebInfo CACHE STRING INTERNAL FORCE)
 target_include_directories(APSudoku PUBLIC
 	allegro5/include
 	build/allegro5/include

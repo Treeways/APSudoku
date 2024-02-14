@@ -10,7 +10,6 @@ enum Config
 	NUM_CFGS
 };
 extern ALLEGRO_CONFIG* configs[NUM_CFGS];
-extern ALLEGRO_CONFIG* config;
 void set_cfg(Config c);
 
 void load_cfg();
@@ -44,3 +43,5 @@ optional<u32> get_config_hex(char const* sec, char const* key);
 void set_config_col(char const* sec, char const* key, ALLEGRO_COLOR const& val);
 optional<ALLEGRO_COLOR> get_config_col(char const* sec, char const* key);
 
+void add_config_comment(char const* sec, char const* comment);
+void add_config_section(char const* sec);

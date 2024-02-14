@@ -1106,6 +1106,11 @@ void TextField::key_event(ALLEGRO_EVENT const& ev)
 						cut();
 					else is_char = true;
 					break;
+				case ALLEGRO_KEY_ENTER:
+				case ALLEGRO_KEY_PAD_ENTER:
+					if(onEnter)
+						onEnter();
+					break;
 				default:
 					is_char = true;
 					break;
@@ -1202,9 +1207,9 @@ bool validate_alphanum(string const& ostr, string const& nstr, char c)
 
 //POPUPS
 void generate_popup(Dialog& popup, optional<u8>& ret, bool& running,
-	string const& title, string const& msg, vector<string> const& strs)
+	string const& title, string const& msg, vector<string> const& strs, optional<u16> w)
 {
-	const uint POP_W = CANVAS_W/2;
+	const uint POP_W = w ? *w : CANVAS_W/2;
 	const uint BTN_H = 32, BTN_PAD = 5;
 	//resizes automatically
 	uint POP_H = CANVAS_H/3;
@@ -1231,7 +1236,7 @@ void generate_popup(Dialog& popup, optional<u8>& ret, bool& running,
 			buf[pos] = 0;
 			//
 			optional<string> add_text;
-			if(al_get_text_width(f, buf+anchor) + 2*TXT_PAD >= POP_W)
+			if(uint(al_get_text_width(f, buf+anchor) + 2*TXT_PAD) >= POP_W)
 			{
 				char c2 = buf[last_space];
 				char c3;
@@ -1341,7 +1346,7 @@ void generate_popup(Dialog& popup, optional<u8>& ret, bool& running,
 	on_resize();
 }
 optional<u8> pop_confirm(string const& title,
-	string const& msg, vector<string> const& strs)
+	string const& msg, vector<string> const& strs, optional<u16> w)
 {
 	Dialog popup;
 	popups.emplace_back(&popup);
@@ -1349,23 +1354,23 @@ optional<u8> pop_confirm(string const& title,
 	bool running = true;
 	optional<u8> ret;
 	
-	generate_popup(popup, ret, running, title, msg, strs);
+	generate_popup(popup, ret, running, title, msg, strs, w);
 	
 	popup.run_proc = [&running](){return running;};
 	popup.run_loop();
 	popups.pop_back();
 	return ret;
 }
-bool pop_okc(string const& title, string const& msg)
+bool pop_okc(string const& title, string const& msg, optional<u16> w)
 {
-	return 0==pop_confirm(title, msg, {"OK", "Cancel"});
+	return 0==pop_confirm(title, msg, {"OK", "Cancel"}, w);
 }
-bool pop_yn(string const& title, string const& msg)
+bool pop_yn(string const& title, string const& msg, optional<u16> w)
 {
-	return 0==pop_confirm(title, msg, {"Yes", "No"});
+	return 0==pop_confirm(title, msg, {"Yes", "No"}, w);
 }
-void pop_inf(string const& title, string const& msg)
+void pop_inf(string const& title, string const& msg, optional<u16> w)
 {
-	pop_confirm(title, msg, {"OK"});
+	pop_confirm(title, msg, {"OK"}, w);
 }
 

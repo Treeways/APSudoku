@@ -49,17 +49,17 @@ void reset() // Resets the theme config to default
 	ConfigStash stash;
 	set_cfg(CFG_THEME);
 	
-	al_add_config_section(config, "Style");
-	al_add_config_section(config, "Color");
-	al_add_config_comment(config, "Color", "Colors given as 0xRRGGBBAA");
-	al_add_config_comment(config, "Style", "% Fill between 0.5 and 1.0");
+	add_config_section("Style");
+	add_config_section("Color");
+	add_config_comment("Color", "Colors given as 0xRRGGBBAA");
+	add_config_comment("Style", "% Fill between 0.5 and 1.0");
 	set_config_dbl("Style", "RadioButton Fill %", 0.6);
 	set_config_dbl("Style", "CheckBox Fill %", 0.6);
-	al_add_config_comment(config, "Style", "Styles: 0=none, 1=under, 2=over");
+	add_config_comment("Style", "Styles: 0=none, 1=under, 2=over");
 	set_config_int("Style", "Grid: Cursor 2 Style", Sudoku::STYLE_OVER);
 	
 	reset_palette();
-	al_add_config_comment(config, "Color", "#");
+	add_config_comment("Color", "#");
 }
 
 void write_palette()

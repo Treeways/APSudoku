@@ -367,6 +367,7 @@ struct TextField : public InputObject
 	u16 cpos, cpos2; //cpos is cursor, cpos2 is anchor of selection
 	static const u16 pad = 2;
 	std::function<bool(string const&,string const&,char)> onValidate;
+	std::function<bool()> onEnter;
 	
 	void draw() const override;
 	u16 height() const override;
@@ -407,9 +408,9 @@ bool validate_float(string const& ostr, string const& nstr, char c);
 bool validate_alphanum(string const& ostr, string const& nstr, char c);
 
 void generate_popup(Dialog& popup, optional<u8>& ret, bool& running,
-	string const& title, string const& msg, vector<string> const& strs);
+	string const& title, string const& msg, vector<string> const& strs, optional<u16> w = nullopt);
 optional<u8> pop_confirm(string const& title,
-	string const& msg, vector<string> const& strs);
-bool pop_okc(string const& title, string const& msg);
-bool pop_yn(string const& title, string const& msg);
-void pop_inf(string const& title, string const& msg);
+	string const& msg, vector<string> const& strs, optional<u16> w = nullopt);
+bool pop_okc(string const& title, string const& msg, optional<u16> w = nullopt);
+bool pop_yn(string const& title, string const& msg, optional<u16> w = nullopt);
+void pop_inf(string const& title, string const& msg, optional<u16> w = nullopt);

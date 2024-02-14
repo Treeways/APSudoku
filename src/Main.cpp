@@ -89,15 +89,16 @@ ALLEGRO_EVENT_QUEUE* events;
 ALLEGRO_EVENT_SOURCE event_source;
 
 std::mt19937 rng;
+bool shift_center = false;
 
 Difficulty diff = DIFF_NORMAL;
 EntryMode mode = ENT_ANSWER;
 EntryMode get_mode()
 {
 	if(cur_input->shift())
-		return ENT_CORNER;
+		return shift_center ? ENT_CENTER : ENT_CORNER;
 	if(cur_input->ctrl_cmd())
-		return ENT_CENTER;
+		return shift_center ? ENT_CORNER : ENT_CENTER;
 	return mode;
 }
 bool mode_mod()
@@ -111,6 +112,7 @@ shared_ptr<Sudoku::Grid> grid;
 #define BUTTON_X (CANVAS_W-32-96)
 #define BUTTON_Y (32)
 shared_ptr<Button> swap_btns[NUM_SCRS];
+shared_ptr<Button> connect_btn;
 shared_ptr<RadioSet> difficulty, entry_mode;
 shared_ptr<Label> connect_error;
 shared_ptr<CheckBox> deathlink_cbox;
@@ -135,6 +137,66 @@ void swap_screen(Screen scr)
 	curscr = scr;
 }
 
+bool do_connect()
+{
+	connect_btn->flags |= FL_SELECTED;
+	connect_btn->focus();
+	if(grid->active())
+	{
+		if(!pop_yn("Forfeit", "Quit solving current puzzle?"))
+		{
+			connect_btn->flags &= ~FL_SELECTED;
+			return false;
+		}
+		//do_ap_death("quit a sudoku puzzle!");//can't be connected here
+		grid->clear();
+	}
+	string& errtxt = connect_error->text;
+	do_ap_connect(ap_fields[0]->get_str(),
+		ap_fields[1]->get_str(), ap_fields[2]->get_str(),
+		ap_fields[3]->get_str(), deathlink_cbox->selected() ? optional<int>(deathlink_amnesty->get_int()) : nullopt);
+	
+	if(!errtxt.empty())
+	{
+		connect_btn->flags &= ~FL_SELECTED;
+		return false; //failed, error handled
+	}
+	auto status = AP_GetConnectionStatus();
+	
+	optional<u8> ret;
+	bool running = true;
+	
+	Dialog popup;
+	popups.emplace_back(&popup);
+	generate_popup(popup, ret, running, "Please Wait", "Connecting...", {"Cancel"});
+	popup.run_proc = [&running]()
+		{
+			if(!running) //cancelled
+			{
+				do_ap_disconnect();
+				return false;
+			}
+			switch(AP_GetConnectionStatus())
+			{
+				case AP_ConnectionStatus::Disconnected:
+				case AP_ConnectionStatus::Connected:
+					return true;
+			}
+			return false;
+		};
+	popup.run_loop();
+	if(!running)
+		errtxt = "Connection cancelled";
+	else switch(AP_GetConnectionStatus())
+	{
+		case AP_ConnectionStatus::ConnectionRefused:
+			errtxt = "Connection Refused: check your connection details";
+			break;
+	}
+	popups.pop_back();
+	connect_btn->flags &= ~FL_SELECTED;
+	return errtxt.empty();
+}
 void build_gui()
 {
 	using namespace Sudoku;
@@ -193,6 +255,33 @@ void build_gui()
 				return ref.handle_ev(e);
 			};
 		gui_objects[SCR_SUDOKU].push_back(grid);
+		const int HELPBTN_WID = 32, HELPBTN_HEI = 24;
+		shared_ptr<Button> gridhelp = make_shared<Button>("?", font_l,
+			GRID_X2-HELPBTN_WID-2, GRID_Y-HELPBTN_HEI, HELPBTN_WID, HELPBTN_HEI);
+		gridhelp->onMouse = [](InputObject& ref,MouseEvent e)
+			{
+				switch(e)
+				{
+					case MOUSE_LCLICK:
+					{
+						ref.flags |= FL_SELECTED;
+						pop_inf("Controls",
+							std::format("LClick: Select (Hold,Shift, or Ctrl: Multi)"
+							"\nRClick: Select (Shift or Ctrl: Deselect)"
+							"\nWASD/Arrow Keys: Move (Shift or Ctrl: Multi)"
+							"\nNumbers: Enter ({})"
+							"\nTab: Cycle number entry mode"
+							"\nDelete/Backspace: Clear Cell",
+								shift_center ? "Shift: Center, Ctrl: Corner"
+								: "Shift: Corner, Ctrl: Center"),
+							CANVAS_W*0.75);
+						ref.flags &= ~FL_SELECTED;
+						break;
+					}
+				}
+				return ref.handle_ev(e);
+			};
+		gui_objects[SCR_SUDOKU].push_back(gridhelp);
 		
 		shared_ptr<Label> lifecnt = make_shared<Label>("", font_l, ALLEGRO_ALIGN_LEFT);
 		lifecnt->setx(GRID_X);
@@ -392,6 +481,7 @@ void build_gui()
 				GRID_X, GRID_Y, 256,
 				defval, font_l);
 			field->onValidate = valproc;
+			field->onEnter = do_connect;
 			r->add(lbl);
 			r->add(field);
 			ap_fields.push_back(field);
@@ -439,7 +529,7 @@ void build_gui()
 		shared_ptr<DrawContainer> cont_on = make_shared<DrawContainer>();
 		shared_ptr<DrawContainer> cont_off = make_shared<DrawContainer>();
 		
-		shared_ptr<Button> connect_btn = make_shared<Button>("Connect", font_l);
+		connect_btn = make_shared<Button>("Connect", font_l);
 		shared_ptr<Button> disconnect_btn = make_shared<Button>("Disconnect", font_l);
 		connect_btn->setx(apc->xpos());
 		connect_btn->sety(apc->ypos() + apc->height() + 4);
@@ -451,60 +541,7 @@ void build_gui()
 				{
 					case MOUSE_LCLICK:
 					{
-						if(grid->active())
-						{
-							if(!pop_yn("Forfeit", "Quit solving current puzzle?"))
-								return MRET_OK;
-							//do_ap_death("quit a sudoku puzzle!");//can't be connected here
-							grid->clear();
-						}
-						ref.flags |= FL_SELECTED;
-						ref.focus();
-						string& errtxt = connect_error->text;
-						do_ap_connect(ap_fields[0]->get_str(),
-							ap_fields[1]->get_str(), ap_fields[2]->get_str(),
-							ap_fields[3]->get_str(), deathlink_cbox->selected() ? optional<int>(deathlink_amnesty->get_int()) : nullopt);
-						
-						if(!errtxt.empty())
-						{
-							ref.flags &= ~FL_SELECTED;
-							return MRET_OK; //failed, error handled
-						}
-						auto status = AP_GetConnectionStatus();
-						
-						optional<u8> ret;
-						bool running = true;
-						
-						Dialog popup;
-						popups.emplace_back(&popup);
-						generate_popup(popup, ret, running, "Please Wait", "Connecting...", {"Cancel"});
-						popup.run_proc = [&running]()
-							{
-								if(!running) //cancelled
-								{
-									do_ap_disconnect();
-									return false;
-								}
-								switch(AP_GetConnectionStatus())
-								{
-									case AP_ConnectionStatus::Disconnected:
-									case AP_ConnectionStatus::Connected:
-										return true;
-								}
-								return false;
-							};
-						popup.run_loop();
-						if(!running)
-							errtxt = "Connection cancelled";
-						else switch(AP_GetConnectionStatus())
-						{
-							case AP_ConnectionStatus::ConnectionRefused:
-								errtxt = "Connection Refused: check your connection details";
-								break;
-						}
-						popups.pop_back();
-						ref.flags &= ~FL_SELECTED;
-						
+						do_connect();
 						return MRET_OK;
 					}
 				}
@@ -729,7 +766,10 @@ void default_configs() // Resets configs to default
 	ConfigStash stash;
 	
 	set_cfg(CFG_ROOT);
+	add_config_comment("GUI", "The multiplier for the window's starting size on launch");
 	set_config_dbl("GUI", "start_scale", 2.0);
+	add_config_comment("GUI", "If 'shift' should do center-marks (true) or corner-marks (false)");
+	set_config_bool("GUI", "shift_center", false);
 	Theme::reset();
 }
 void refresh_configs() // Uses values in the loaded configs to change the program
@@ -767,6 +807,7 @@ void refresh_configs() // Uses values in the loaded configs to change the progra
 	INT_BOUND(Grid::sel_style,0,NUM_STYLE-1,"Style","Grid: Cursor 2 Style")
 	Theme::read_palette();
 	set_cfg(CFG_ROOT);
+	BOOL_READ(shift_center, "GUI", "shift_center")
 	
 	if(wrote_any)
 		save_cfg();
