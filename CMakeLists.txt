@@ -130,5 +130,17 @@ target_link_libraries(APSudoku PUBLIC APCpp allegro allegro_main allegro_primiti
 add_custom_command(TARGET APSudoku POST_BUILD
 	COMMAND ${CMAKE_COMMAND} -E copy_directory
 		"${CMAKE_SOURCE_DIR}/assets" "$<TARGET_FILE_DIR:APSudoku>/assets"
+	COMMAND ${CMAKE_COMMAND} -E copy_directory
+		"${CMAKE_SOURCE_DIR}/assets" "${CMAKE_BINARY_DIR}/out_$<CONFIG>/assets"
 	COMMENT "Copying Assets")
+add_custom_command(TARGET APSudoku POST_BUILD
+	COMMAND ${CMAKE_COMMAND} -E copy
+		"$<TARGET_FILE_DIR:APSudoku>/allegro_font-5.2.dll"
+		"$<TARGET_FILE_DIR:APSudoku>/allegro_primitives-5.2.dll"
+		"$<TARGET_FILE_DIR:APSudoku>/allegro_ttf-5.2.dll"
+		"$<TARGET_FILE_DIR:APSudoku>/allegro-5.2.dll"
+		"$<TARGET_FILE_DIR:APSudoku>/APCpp.dll"
+		"$<TARGET_FILE:APSudoku>"
+			"${CMAKE_BINARY_DIR}/out_$<CONFIG>"
+	COMMENT "Packaging output")
 	
