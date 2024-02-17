@@ -42,7 +42,7 @@ namespace Sudoku
 		if(shape_mode)
 			bgc = given ? C_SHAPES_GIVEN_BG : C_SHAPES_USER_BG;
 		al_draw_filled_rectangle(X, Y, X+W-1, Y+H-1, bgc);
-		al_draw_rectangle(X, Y, X+W-1, Y+H-1, Color(C_CELL_BORDER), 0.5);
+		al_draw_rectangle(X, Y, X+W-1, Y+H-1, Color(C_CELL_BORDER), shape_mode ? 1 : 0.5);
 		
 		
 		if(shape_mode)
@@ -73,15 +73,7 @@ namespace Sudoku
 				}
 			}
 		}
-		bool has_bad_shape = shape_mode && (val > SH_MAX);
-		if(shape_mode && !val)
-			for(int q = SH_MAX-1; q < 9; ++q)
-				if(corner_marks[q])
-				{
-					has_bad_shape = true;
-					break;
-				}
-		if(!shape_mode || has_bad_shape)//TEMP, should be: //else
+		else
 		{
 			if(val)
 			{
@@ -101,7 +93,7 @@ namespace Sudoku
 					if(corner_marks[q])
 						crn_marks += to_string(q+1);
 				}
-				if(!has_bad_shape && !cen_marks.empty())
+				if(!cen_marks.empty())
 				{
 					auto font = FONT_MARKING5;
 					if(cen_marks.size() > 5)
@@ -124,8 +116,8 @@ namespace Sudoku
 					for(int q = 0; q < 9 && q < crn_marks.size(); ++q)
 					{
 						buf[0] = crn_marks[q];
-						if(has_bad_shape && buf[0]-'0' < SH_MAX) continue;
-						al_draw_text(f, Color(C_CELL_TEXT), X+xs[q], Y+ys[q] - fh/2, ALLEGRO_ALIGN_CENTRE, buf);
+						al_draw_text(f, Color(C_CELL_TEXT), X+xs[q], Y+ys[q] - fh/2,
+							ALLEGRO_ALIGN_CENTRE, buf);
 					}
 				}
 			}

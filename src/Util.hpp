@@ -1,10 +1,14 @@
 #pragma once
 
+#include <numbers>
 #include "Main.hpp"
+
+using std::numbers::pi;
 
 u32 col_to_hex(ALLEGRO_COLOR const& c);
 u32 col_to_hex(ALLEGRO_COLOR const* c);
 ALLEGRO_COLOR hex_to_col(u32 val);
+
 constexpr u32 rgb_to_hex(u8 r, u8 g, u8 b)
 {
 	return (r<<24)|(g<<16)|(b<<8)|0xFF;
@@ -73,4 +77,28 @@ T* rand(set<T>& s)
 	std::advance(it,indx);
 	return const_cast<T*>(&*it);
 }
+
+inline double vectorX(double len, double angle)
+{
+	return cos(angle)*len;
+}
+
+inline double vectorY(double len, double angle)
+{
+	return sin(angle)*len;
+}
+
+constexpr double deg_to_rad(double degrees)
+{
+	return degrees * (pi/180.0);
+}
+constexpr double operator ""_deg(unsigned long long int degrees)
+{
+	return deg_to_rad(degrees);
+}
+constexpr double operator ""_deg(char const* degrees)
+{
+	return deg_to_rad(std::stod(degrees));
+}
+
 
