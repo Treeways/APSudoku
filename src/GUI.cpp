@@ -5,6 +5,7 @@
 InputState* cur_input;
 double render_xscale = 1, render_yscale = 1;
 int render_resx = CANVAS_W, render_resy = CANVAS_H;
+ALLEGRO_BITMAP* shape_bmps[9] = {nullptr};
 
 void ClipRect::store()
 {
@@ -21,6 +22,37 @@ ClipRect::ClipRect()
 void ClipRect::set(int X, int Y, int W, int H)
 {
 	al_set_clipping_rectangle(X,Y,W,H);
+}
+
+void BmpBlender::store()
+{
+	al_get_separate_blender(&op, &src, &dest, &a_op, &a_src, &a_dest);
+	col = al_get_blend_color();
+}
+void BmpBlender::load()
+{
+	al_set_separate_blender(op, src, dest, a_op, a_src, a_dest);
+	al_set_blend_color(col);
+}
+BmpBlender::BmpBlender()
+{
+	store();
+}
+void BmpBlender::set(int OP, int SRC, int DEST)
+{
+	al_set_blender(OP, SRC, DEST);
+}
+void BmpBlender::set(int OP, int SRC, int DEST, int A_OP, int A_SRC, int A_DEST)
+{
+	al_set_separate_blender(OP, SRC, DEST, A_OP, A_SRC, A_DEST);
+}
+void BmpBlender::set_col(ALLEGRO_COLOR const& c)
+{
+	al_set_blend_color(c);
+}
+void BmpBlender::set_opacity_mode()
+{
+	al_set_blender(ALLEGRO_ADD,ALLEGRO_ONE,ALLEGRO_ZERO);
 }
 
 void DrawContainer::run()
@@ -1372,5 +1404,172 @@ bool pop_yn(string const& title, string const& msg, optional<u16> w)
 void pop_inf(string const& title, string const& msg, optional<u16> w)
 {
 	pop_confirm(title, msg, {"OK"}, w);
+}
+
+//INITS
+void init_shapes() //For "Use Colors" mode
+{
+	al_set_new_bitmap_flags(ALLEGRO_MIPMAP);
+	for(int q = 0; q < 9; ++q)
+	{
+		shape_bmps[q] = al_create_bitmap(32*SHAPE_SCL,32*SHAPE_SCL);
+		clear_a5_bmp(C_TRANS, shape_bmps[q]);
+	}
+	// Draw the shapes
+	const uint BORDER_W = 1*SHAPE_SCL;
+	const uint CX = 16*SHAPE_SCL;
+	const uint CY = 16*SHAPE_SCL;
+	const uint RX = 32*SHAPE_SCL-1;
+	const uint BY = 32*SHAPE_SCL-1;
+	const Color borderc(C_SHAPES_BORDER);
+	
+	const uint SHP_RAD = 12*SHAPE_SCL;
+	const uint SHP_BORDER = SHP_RAD+BORDER_W;
+	// "1" - Circle
+	{
+		al_set_target_bitmap(shape_bmps[SH_CIRCLE]);
+		al_draw_filled_circle(CX, CY, SHP_BORDER, borderc);
+		al_draw_filled_circle(CY, CX, SHP_RAD, Color(C_SHAPES_1));
+	}
+	// "2" - Semicircle
+	{
+		al_set_target_bitmap(shape_bmps[SH_SEMICIRCLE]);
+		ClipRect r;
+		ClipRect::set(0,CY-1,RX+1,BY-(CY-1));
+		al_draw_filled_circle(CX, CY, SHP_BORDER, borderc);
+		al_draw_filled_circle(CY, CX, SHP_RAD, Color(C_SHAPES_2));
+		r.load();
+		al_draw_filled_rectangle(CX-SHP_BORDER, CY,
+			CX+SHP_BORDER, CY-BORDER_W, borderc); //add top border
+	}
+	// "3" - Crescent
+	{
+		const int CRESC_RAD = 12*SHAPE_SCL;
+		const int CX2 = CX+CRESC_RAD - (4 * SHAPE_SCL);
+		const int INTERSECT_X = CX2 - (4*SHAPE_SCL);
+		al_set_target_bitmap(shape_bmps[SH_CRESCENT]);
+		al_draw_filled_circle(CX, CY, SHP_BORDER, borderc);
+		al_draw_filled_circle(CY, CX, SHP_RAD, Color(C_SHAPES_3));
+		
+		ClipRect r;
+		ClipRect::set(0,0,INTERSECT_X,BY);
+		al_draw_filled_circle(CX2,CY,CRESC_RAD+BORDER_W,C_BLACK);
+		r.load();
+		
+		BmpBlender bl;
+		BmpBlender::set_opacity_mode();
+		al_draw_filled_circle(CX2,CY,CRESC_RAD,C_TRANS);
+		bl.load();
+	}
+	// "4" - Triangle
+	{
+		al_set_target_bitmap(shape_bmps[SH_TRIANGLE]);
+		al_draw_filled_triangle(CX, CY-SHP_BORDER, CX-SHP_BORDER, CY+SHP_BORDER,
+			CX+SHP_BORDER, CY+SHP_BORDER, borderc);
+		al_draw_filled_triangle(CX, CY-SHP_RAD, CX-SHP_RAD, CY+SHP_RAD,
+			CX+SHP_RAD, CY+SHP_RAD, Color(C_SHAPES_4));
+	}
+	// "5" - Star
+	{
+		al_set_target_bitmap(shape_bmps[SH_STAR]);
+		const uint STAR_RAD = 13*SHAPE_SCL;
+		const uint STAR_RAD2 = 6*SHAPE_SCL;
+		float vert[20];
+		float border_vert[20];
+		double angle = 270_deg;
+		for(int q = 0; q < 10; ++q)
+		{
+			auto rad = q%2 ? STAR_RAD2 : STAR_RAD;
+			vert[q*2] = CX+vectorX(rad,angle);
+			vert[q*2+1] = CY+vectorY(rad,angle);
+			
+			rad += BORDER_W;
+			border_vert[q*2] = CX+vectorX(rad,angle);
+			border_vert[q*2+1] = CY+vectorY(rad,angle);
+			
+			angle -= 36_deg;
+		};
+		al_draw_filled_polygon(border_vert, 10, borderc);
+		al_draw_filled_polygon(vert, 10, Color(C_SHAPES_5));
+	}
+	// "6" - Diamond
+	{
+		al_set_target_bitmap(shape_bmps[SH_DIAMOND]);
+		const uint DIAM_RAD = 13*SHAPE_SCL;
+		const uint DIAM_RAD2 = 10*SHAPE_SCL;
+		float vert[8];
+		float border_vert[8];
+		double angle = 270_deg;
+		for(int q = 0; q < 10; ++q)
+		{
+			auto rad = q%2 ? DIAM_RAD2 : DIAM_RAD;
+			vert[q*2] = CX+vectorX(rad,angle);
+			vert[q*2+1] = CY+vectorY(rad,angle);
+			
+			rad += BORDER_W;
+			border_vert[q*2] = CX+vectorX(rad,angle);
+			border_vert[q*2+1] = CY+vectorY(rad,angle);
+			
+			angle -= 90_deg;
+		};
+		al_draw_filled_polygon(border_vert, 4, borderc);
+		al_draw_filled_polygon(vert, 4, Color(C_SHAPES_6));
+	}
+	// "7" - House
+	{
+		al_set_target_bitmap(shape_bmps[SH_HOUSE]);
+		float vert[14] =
+		{
+			CX,               CY-12*SHAPE_SCL,
+			CX-12*SHAPE_SCL,  CY,
+			CX-8*SHAPE_SCL,   CY,
+			CX-8*SHAPE_SCL,   CY+12*SHAPE_SCL,
+			CX+8*SHAPE_SCL,   CY+12*SHAPE_SCL,
+			CX+8*SHAPE_SCL,   CY,
+			CX+12*SHAPE_SCL,  CY
+		};
+		float border_vert[14]
+		{
+			CX,                        CY-12*SHAPE_SCL-BORDER_W*2,
+			CX-12*SHAPE_SCL-BORDER_W*2,  CY+BORDER_W,
+			CX-8*SHAPE_SCL-BORDER_W,   CY+BORDER_W,
+			CX-8*SHAPE_SCL-BORDER_W,   CY+12*SHAPE_SCL+BORDER_W,
+			CX+8*SHAPE_SCL+BORDER_W,   CY+12*SHAPE_SCL+BORDER_W,
+			CX+8*SHAPE_SCL+BORDER_W,   CY+BORDER_W,
+			CX+12*SHAPE_SCL+BORDER_W*2,  CY+BORDER_W
+		};
+		
+		al_draw_filled_polygon(border_vert, 7, borderc);
+		al_draw_filled_polygon(vert, 7, Color(C_SHAPES_7));
+	}
+	// "8" - Square
+	{
+		al_set_target_bitmap(shape_bmps[SH_SQUARE]);
+		al_draw_filled_rectangle(CX-SHP_BORDER, CY-SHP_BORDER, CX+SHP_BORDER, CY+SHP_BORDER, borderc);
+		al_draw_filled_rectangle(CX-SHP_RAD, CY-SHP_RAD, CX+SHP_RAD, CY+SHP_RAD, Color(C_SHAPES_8));
+	}
+	// "9" - Hexagon
+	{
+		al_set_target_bitmap(shape_bmps[SH_HEXAGON]);
+		const uint HEX_RAD = SHP_RAD;
+		float vert[12];
+		float border_vert[12];
+		double angle = 0_deg;
+		for(int q = 0; q < 10; ++q)
+		{
+			auto rad = HEX_RAD;
+			vert[q*2] = CX+vectorX(rad,angle);
+			vert[q*2+1] = CY+vectorY(rad,angle);
+			
+			rad += BORDER_W;
+			border_vert[q*2] = CX+vectorX(rad,angle);
+			border_vert[q*2+1] = CY+vectorY(rad,angle);
+			
+			angle -= 60_deg;
+		};
+		al_draw_filled_polygon(border_vert, 6, borderc);
+		al_draw_filled_polygon(vert, 6, Color(C_SHAPES_9));
+	}
+	al_set_new_bitmap_flags(0);
 }
 

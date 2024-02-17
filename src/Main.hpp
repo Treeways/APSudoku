@@ -60,6 +60,7 @@ extern ALLEGRO_DISPLAY* display;
 
 extern vector<DrawContainer*> popups;
 extern u64 cur_frame;
+extern bool shape_mode;
 
 void dlg_draw();
 void dlg_render();

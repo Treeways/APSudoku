@@ -37,52 +37,88 @@ namespace Sudoku
 	}
 	void Cell::draw(u16 X, u16 Y, u16 W, u16 H) const
 	{
-		al_draw_filled_rectangle(X, Y, X+W-1, Y+H-1, Color(C_CELL_BG));
-		al_draw_rectangle(X, Y, X+W-1, Y+H-1, Color(C_CELL_BORDER), 0.5);
-		
 		bool given = (flags & CFL_GIVEN);
-		if(val)
+		Color bgc = C_CELL_BG;
+		if(shape_mode)
+			bgc = given ? C_SHAPES_GIVEN_BG : C_SHAPES_USER_BG;
+		al_draw_filled_rectangle(X, Y, X+W-1, Y+H-1, bgc);
+		al_draw_rectangle(X, Y, X+W-1, Y+H-1, Color(C_CELL_BORDER), shape_mode ? 1 : 0.5);
+		
+		
+		if(shape_mode)
 		{
-			string text = to_string(val);
-			ALLEGRO_FONT* f = fonts[FONT_ANSWER].get();
-			int tx = (X+W/2);
-			int ty = (Y+H/2)-(al_get_font_line_height(f)/2);
-			al_draw_text(f, Color(given ? C_CELL_GIVEN : C_CELL_TEXT), tx, ty, ALLEGRO_ALIGN_CENTRE, text.c_str());
-		}
-		else if(!given)
-		{
-			string cen_marks, crn_marks;
-			for(u8 q = 0; q < 9; ++q)
+			if(val)
 			{
-				if(center_marks[q])
-					cen_marks += to_string(q+1);
-				if(corner_marks[q])
-					crn_marks += to_string(q+1);
+				al_draw_scaled_bitmap(shape_bmps[val-1],
+					0, 0, SHAPE_SZ, SHAPE_SZ,
+					X, Y, W, H, 0);
 			}
-			if(!cen_marks.empty())
+			else if(!given)
 			{
-				auto font = FONT_MARKING5;
-				if(cen_marks.size() > 5)
-					font = Font(FONT_MARKING5 + cen_marks.size()-5);
-				ALLEGRO_FONT* f = fonts[font].get();
+				// Center marks don't work for shape mode, so only corners
+				u16 SHAPE_W = CELL_SZ, SHAPE_H = CELL_SZ;
+				scale_pos(SHAPE_W,SHAPE_H);
+				SHAPE_W /= 3;
+				SHAPE_H /= 3;
+				const int CX = X+(W/2);
+				int xs[] = {0,SHAPE_W,SHAPE_W*2};
+				int ys[] = {0,SHAPE_H,SHAPE_H*2};
+				for(u8 q = 0; q < 9; ++q)
+				{
+					if(!corner_marks[q]) continue;
+					if(q > SH_MAX) continue;
+					al_draw_scaled_bitmap(shape_bmps[q],
+						0, 0, SHAPE_SZ, SHAPE_SZ,
+						X+xs[q%3], Y+ys[q/3], SHAPE_W, SHAPE_H, 0);
+				}
+			}
+		}
+		else
+		{
+			if(val)
+			{
+				string text = to_string(val);
+				ALLEGRO_FONT* f = fonts[FONT_ANSWER].get();
 				int tx = (X+W/2);
 				int ty = (Y+H/2)-(al_get_font_line_height(f)/2);
-				al_draw_text(f, Color(C_CELL_TEXT), tx, ty, ALLEGRO_ALIGN_CENTRE, cen_marks.c_str());
+				al_draw_text(f, Color(given ? C_CELL_GIVEN : C_CELL_TEXT), tx, ty, ALLEGRO_ALIGN_CENTRE, text.c_str());
 			}
-			if(!crn_marks.empty())
+			else if(!given)
 			{
-				auto font = FONT_MARKING5;
-				ALLEGRO_FONT* f = fonts[font].get();
-				u16 vx = 6, vy = 6;
-				scale_pos(vx, vy);
-				int xs[] = {vx,W-vx,vx,W-vx,W/2,W/2,vx,W-vx,W/2-4};
-				int ys[] = {vy,vy,H-vy,H-vy,vy,H-vy,H/2,H/2,H/2-4};
-				auto fh = al_get_font_line_height(f);
-				char buf[2] = {0,0};
-				for(int q = 0; q < 9 && q < crn_marks.size(); ++q)
+				string cen_marks, crn_marks;
+				for(u8 q = 0; q < 9; ++q)
 				{
-					buf[0] = crn_marks[q];
-					al_draw_text(f, Color(C_CELL_TEXT), X+xs[q], Y+ys[q] - fh/2, ALLEGRO_ALIGN_CENTRE, buf);
+					if(center_marks[q])
+						cen_marks += to_string(q+1);
+					if(corner_marks[q])
+						crn_marks += to_string(q+1);
+				}
+				if(!cen_marks.empty())
+				{
+					auto font = FONT_MARKING5;
+					if(cen_marks.size() > 5)
+						font = Font(FONT_MARKING5 + cen_marks.size()-5);
+					ALLEGRO_FONT* f = fonts[font].get();
+					int tx = (X+W/2);
+					int ty = (Y+H/2)-(al_get_font_line_height(f)/2);
+					al_draw_text(f, Color(C_CELL_TEXT), tx, ty, ALLEGRO_ALIGN_CENTRE, cen_marks.c_str());
+				}
+				if(!crn_marks.empty())
+				{
+					auto font = FONT_MARKING5;
+					ALLEGRO_FONT* f = fonts[font].get();
+					u16 vx = 6, vy = 6;
+					scale_pos(vx, vy);
+					int xs[] = {vx,W-vx,vx,W-vx,W/2,W/2,vx,W-vx,W/2-4};
+					int ys[] = {vy,vy,H-vy,H-vy,vy,H-vy,H/2,H/2,H/2-4};
+					auto fh = al_get_font_line_height(f);
+					char buf[2] = {0,0};
+					for(int q = 0; q < 9 && q < crn_marks.size(); ++q)
+					{
+						buf[0] = crn_marks[q];
+						al_draw_text(f, Color(C_CELL_TEXT), X+xs[q], Y+ys[q] - fh/2,
+							ALLEGRO_ALIGN_CENTRE, buf);
+					}
 				}
 			}
 		}

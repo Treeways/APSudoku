@@ -21,8 +21,6 @@ namespace Sudoku
 	struct Cell;
 	struct Grid;
 	
-	#define CELL_SZ 32
-	
 	struct Cell
 	{
 		u8 solution = 0;
