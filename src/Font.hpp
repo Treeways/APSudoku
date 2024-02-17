@@ -11,7 +11,7 @@ enum Bold
 	BOLD_EXTRA,
 	NUM_BOLDS
 };
-struct FontDef : public tuple<i16,bool,Bold> // A reference to a font
+struct FontDef : public tuple<i16,bool,Bold> // A definition of a font
 {
 	i16& height() {return std::get<0>(*this);}
 	i16 const& height() const {return std::get<0>(*this);}
@@ -36,6 +36,17 @@ enum Font
 	FONT_MARKING8,
 	FONT_MARKING9,
 	NUM_FONTS
+};
+struct FontRef
+{
+	FontDef const& get() const;
+	FontRef();
+	FontRef(FontDef const& f);
+	FontRef(const Font indx);
+	operator FontDef const&() const {return get();}
+private:
+	optional<FontDef> f;
+	optional<Font> indx;
 };
 extern FontDef fonts[NUM_FONTS];
 void scale_fonts();

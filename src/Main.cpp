@@ -203,10 +203,10 @@ bool do_connect()
 
 void init_grid() //for debug convenience only
 {
-	for(int q = 0; q < 9; ++q)
-	{
-		grid->cells[(3+(q%3))+((3+(q/3))*9)].val = q+1;
-	}
+	// for(int q = 0; q < 9; ++q)
+	// {
+		// grid->cells[(3+(q%3))+((3+(q/3))*9)].val = q+1;
+	// }
 }
 void build_gui()
 {
@@ -327,7 +327,7 @@ void build_gui()
 		gui_objects[SCR_SUDOKU].push_back(nogame);
 	}
 	{ // Difficulty / game buttons
-		shared_ptr<Column> diff_column = make_shared<Column>(RGRID_X,GRID_Y,0,2,ALLEGRO_ALIGN_LEFT);
+		shared_ptr<Column> diff_column = make_shared<Column>(BUTTON_X,GRID_Y,0,2,ALLEGRO_ALIGN_LEFT);
 		
 		shared_ptr<Label> diff_lbl = make_shared<Label>("Difficulty:", font_s, ALLEGRO_ALIGN_LEFT);
 		diff_column->add(diff_lbl);
@@ -460,6 +460,7 @@ void build_gui()
 				}
 				return ref.handle_ev(e);
 			};
+		entry_mode->cont[1]->dis_proc = [](GUIObject const& ref) -> bool {return shape_mode;};
 		
 		auto shapes_check = make_shared<CheckBox>("Shapes Mode", font_s);
 		if(shape_mode)
@@ -474,7 +475,84 @@ void build_gui()
 			};
 		entry_col->add(shapes_check);
 		
+		auto cellborder_check = make_shared<CheckBox>("Thicker Borders", font_s);
+		if(shape_mode)
+			cellborder_check->flags |= FL_SELECTED;
+		cellborder_check->onMouse = [](InputObject& ref,MouseEvent e)
+			{
+				auto ret = ref.handle_ev(e);
+				thicker_borders = (ref.flags & FL_SELECTED);
+				set_config_bool("GUI", "thicker_borders", thicker_borders);
+				save_cfg(CFG_ROOT);
+				return ret;
+			};
+		entry_col->add(cellborder_check);
+		
 		gui_objects[SCR_SUDOKU].push_back(entry_col);
+	}
+	{ // Number Entry Buttons
+		shared_ptr<Column> entry_c_num = make_shared<Column>(RGRID_X, GRID_Y, 0, 0, ALLEGRO_ALIGN_CENTER);
+		entry_c_num->vis_proc = [](GUIObject const& ref) -> bool {return !shape_mode;};
+		
+		shared_ptr<Column> entry_c_shape = make_shared<Column>(RGRID_X, GRID_Y, 0, 0, ALLEGRO_ALIGN_CENTER);
+		entry_c_shape->vis_proc = [](GUIObject const& ref) -> bool {return shape_mode;};
+		
+		for(int row = 0; row < 3; ++row)
+		{
+			shared_ptr<Row> r = make_shared<Row>(0,0,0,0,ALLEGRO_ALIGN_CENTER);
+			shared_ptr<Row> rs = make_shared<Row>(0,0,0,0,ALLEGRO_ALIGN_CENTER);
+			for(int col = 0; col < 3; ++col)
+			{
+				auto q = col+(row*3);
+				shared_ptr<Button> btn = make_shared<Button>(to_string(q+1), FONT_ANSWER, 0, 0, CELL_SZ, CELL_SZ);
+				shared_ptr<BmpButton> bmpbtn = make_shared<BmpButton>(shape_bmps[q], 0, 0, CELL_SZ, CELL_SZ);
+				btn->onMouse = [q](InputObject& ref,MouseEvent e)
+					{
+						if(e == MOUSE_LCLICK)
+						{
+							grid->enter(q+1);
+							grid->focus();
+							return MRET_OK;
+						}
+						return ref.handle_ev(e);
+					};
+				bmpbtn->onMouse = [q](InputObject& ref,MouseEvent e)
+					{
+						if(e == MOUSE_LCLICK)
+						{
+							grid->enter(q+1);
+							grid->focus();
+							return MRET_OK;
+						}
+						return ref.handle_ev(e);
+					};
+				r->add(btn);
+				rs->add(bmpbtn);
+			}
+			entry_c_num->add(r);
+			entry_c_shape->add(rs);
+		}
+		shared_ptr<Button> del = make_shared<Button>("Delete", FONT_ANSWER, 0, 0, CELL_SZ*3, CELL_SZ);
+		del->onMouse = [](InputObject& ref,MouseEvent e)
+			{
+				if(e == MOUSE_LCLICK)
+				{
+					grid->enter(0);
+					grid->focus();
+					return MRET_OK;
+				}
+				return ref.handle_ev(e);
+			};
+		entry_c_num->add(del);
+		entry_c_shape->add(del);
+		
+		entry_c_num->sety(GRID_Y2-entry_c_num->height());
+		entry_c_shape->sety(entry_c_num->ypos());
+		entry_c_num->realign();
+		entry_c_shape->realign();
+		
+		gui_objects[SCR_SUDOKU].push_back(entry_c_num);
+		gui_objects[SCR_SUDOKU].push_back(entry_c_shape);
 	}
 	{ // AP connection
 		shared_ptr<Column> apc = make_shared<Column>(GRID_X, GRID_Y, 0, 8, ALLEGRO_ALIGN_RIGHT);
@@ -650,7 +728,7 @@ void setup_allegro();
 void save_cfg();
 volatile bool program_running = true;
 u64 cur_frame = 0;
-bool shape_mode = false;
+bool shape_mode = false, thicker_borders = false;
 void run_events(bool& redraw)
 {
 	ALLEGRO_EVENT ev;
@@ -798,6 +876,7 @@ void default_configs() // Resets configs to default
 	add_config_comment("GUI", "If 'shift' should do center-marks (true) or corner-marks (false)");
 	set_config_bool("GUI", "shift_center", false);
 	set_config_bool("GUI", "shape_mode", false);
+	set_config_bool("GUI", "thicker_borders", false);
 	Theme::reset();
 }
 void refresh_configs() // Uses values in the loaded configs to change the program
@@ -837,6 +916,7 @@ void refresh_configs() // Uses values in the loaded configs to change the progra
 	set_cfg(CFG_ROOT);
 	BOOL_READ(shift_center, "GUI", "shift_center")
 	BOOL_READ(shape_mode, "GUI", "shape_mode")
+	BOOL_READ(thicker_borders, "GUI", "thicker_borders")
 	
 	if(wrote_any)
 		save_cfg();

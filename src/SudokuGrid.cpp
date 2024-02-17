@@ -30,6 +30,8 @@ namespace Sudoku
 	{
 		if(val)
 			return ENT_ANSWER;
+		if(shape_mode)
+			return ENT_CORNER;
 		for(int q = 0; q < 9; ++q)
 			if(center_marks[q])
 				return ENT_CENTER;
@@ -42,7 +44,7 @@ namespace Sudoku
 		if(shape_mode)
 			bgc = given ? C_SHAPES_GIVEN_BG : C_SHAPES_USER_BG;
 		al_draw_filled_rectangle(X, Y, X+W-1, Y+H-1, bgc);
-		al_draw_rectangle(X, Y, X+W-1, Y+H-1, Color(C_CELL_BORDER), shape_mode ? 1 : 0.5);
+		al_draw_rectangle(X, Y, X+W-1, Y+H-1, Color(C_CELL_BORDER), thicker_borders ? 1 : 0.5);
 		
 		
 		if(shape_mode)
@@ -368,116 +370,6 @@ namespace Sudoku
 		}
 		if(sel_style == STYLE_OVER) DRAW_FOCUS()
 	}
-	void Grid::key_event(ALLEGRO_EVENT const& ev)
-	{
-		bool shift = cur_input->shift();
-		bool ctrl_cmd = cur_input->ctrl_cmd();
-		bool alt = cur_input->alt();
-		switch(ev.type)
-		{
-			case ALLEGRO_EVENT_KEY_DOWN:
-			{
-				u8 input_num = 0;
-				switch(ev.keyboard.keycode)
-				{
-					case ALLEGRO_KEY_1:
-					case ALLEGRO_KEY_2:
-					case ALLEGRO_KEY_3:
-					case ALLEGRO_KEY_4:
-					case ALLEGRO_KEY_5:
-					case ALLEGRO_KEY_6:
-					case ALLEGRO_KEY_7:
-					case ALLEGRO_KEY_8:
-					case ALLEGRO_KEY_9:
-					{
-						input_num = ev.keyboard.keycode-ALLEGRO_KEY_0;
-						break;
-					}
-					case ALLEGRO_KEY_PAD_1:
-					case ALLEGRO_KEY_PAD_2:
-					case ALLEGRO_KEY_PAD_3:
-					case ALLEGRO_KEY_PAD_4:
-					case ALLEGRO_KEY_PAD_5:
-					case ALLEGRO_KEY_PAD_6:
-					case ALLEGRO_KEY_PAD_7:
-					case ALLEGRO_KEY_PAD_8:
-					case ALLEGRO_KEY_PAD_9:
-					{
-						input_num = ev.keyboard.keycode-ALLEGRO_KEY_PAD_0;
-						break;
-					}
-					case ALLEGRO_KEY_UP: case ALLEGRO_KEY_W:
-					case ALLEGRO_KEY_DOWN: case ALLEGRO_KEY_S:
-					case ALLEGRO_KEY_LEFT: case ALLEGRO_KEY_A:
-					case ALLEGRO_KEY_RIGHT: case ALLEGRO_KEY_D:
-						if(optional<u8> o_ind = find(focus_cell))
-						{
-							u8 ind = *o_ind;
-							if(!shift)
-								deselect();
-							switch(ev.keyboard.keycode)
-							{
-								case ALLEGRO_KEY_UP: case ALLEGRO_KEY_W:
-									if(ind >= 9)
-										ind -= 9;
-									break;
-								case ALLEGRO_KEY_DOWN: case ALLEGRO_KEY_S:
-									if(ind <= 9*9-9)
-										ind += 9;
-									break;
-								case ALLEGRO_KEY_LEFT: case ALLEGRO_KEY_A:
-									if(ind % 9)
-										--ind;
-									break;
-								case ALLEGRO_KEY_RIGHT: case ALLEGRO_KEY_D:
-									if((ind % 9) < 8)
-										++ind;
-									break;
-							}
-							select(&cells[ind]);
-						}
-						break;
-					case ALLEGRO_KEY_TAB:
-						if(!mode_mod())
-							mode = EntryMode((mode+1)%NUM_ENT);
-						break;
-					case ALLEGRO_KEY_DELETE:
-					case ALLEGRO_KEY_BACKSPACE:
-						if(!selected.empty())
-						{
-							EntryMode m = NUM_ENT;
-							for(Cell* c : selected)
-							{
-								if(c->flags & CFL_GIVEN)
-									continue;
-								EntryMode m2 = c->current_mode();
-								if(m2 < m)
-									m = m2;
-							}
-							for(Cell* c : selected)
-							{
-								if(c->flags & CFL_GIVEN)
-									continue;
-								c->clear_marks(m);
-							}
-						}
-						break;
-				}
-				if(input_num && !selected.empty())
-				{
-					auto m = get_mode();
-					for(Cell* c : selected)
-						c->enter(m, input_num);
-				}
-				break;
-			}
-			case ALLEGRO_EVENT_KEY_UP:
-				break;
-			case ALLEGRO_EVENT_KEY_CHAR:
-				break;
-		}
-		InputObject::key_event(ev);
-	}
 	
 	void Grid::deselect()
 	{
@@ -526,6 +418,125 @@ namespace Sudoku
 		}
 	}
 	
+	void Grid::enter(u8 val)
+	{
+		if(selected.empty())
+			return;
+		if(val == 0)
+		{
+			EntryMode m = NUM_ENT;
+			for(Cell* c : selected)
+			{
+				if(c->flags & CFL_GIVEN)
+					continue;
+				EntryMode m2 = c->current_mode();
+				if(m2 < m)
+					m = m2;
+			}
+			for(Cell* c : selected)
+			{
+				if(c->flags & CFL_GIVEN)
+					continue;
+				c->clear_marks(m);
+			}
+		}
+		else if(val <= 9)
+		{
+			auto m = get_mode();
+			for(Cell* c : selected)
+				c->enter(m, val);
+		}
+	}
+	void Grid::key_event(ALLEGRO_EVENT const& ev)
+	{
+		bool shift = cur_input->shift();
+		bool ctrl_cmd = cur_input->ctrl_cmd();
+		bool alt = cur_input->alt();
+		switch(ev.type)
+		{
+			case ALLEGRO_EVENT_KEY_DOWN:
+			{
+				switch(ev.keyboard.keycode)
+				{
+					case ALLEGRO_KEY_1:
+					case ALLEGRO_KEY_2:
+					case ALLEGRO_KEY_3:
+					case ALLEGRO_KEY_4:
+					case ALLEGRO_KEY_5:
+					case ALLEGRO_KEY_6:
+					case ALLEGRO_KEY_7:
+					case ALLEGRO_KEY_8:
+					case ALLEGRO_KEY_9:
+					{
+						enter(ev.keyboard.keycode-ALLEGRO_KEY_0);
+						break;
+					}
+					case ALLEGRO_KEY_PAD_1:
+					case ALLEGRO_KEY_PAD_2:
+					case ALLEGRO_KEY_PAD_3:
+					case ALLEGRO_KEY_PAD_4:
+					case ALLEGRO_KEY_PAD_5:
+					case ALLEGRO_KEY_PAD_6:
+					case ALLEGRO_KEY_PAD_7:
+					case ALLEGRO_KEY_PAD_8:
+					case ALLEGRO_KEY_PAD_9:
+					{
+						enter(ev.keyboard.keycode-ALLEGRO_KEY_PAD_0);
+						break;
+					}
+					case ALLEGRO_KEY_UP: case ALLEGRO_KEY_W:
+					case ALLEGRO_KEY_DOWN: case ALLEGRO_KEY_S:
+					case ALLEGRO_KEY_LEFT: case ALLEGRO_KEY_A:
+					case ALLEGRO_KEY_RIGHT: case ALLEGRO_KEY_D:
+						if(optional<u8> o_ind = find(focus_cell))
+						{
+							u8 ind = *o_ind;
+							if(!shift)
+								deselect();
+							switch(ev.keyboard.keycode)
+							{
+								case ALLEGRO_KEY_UP: case ALLEGRO_KEY_W:
+									if(ind >= 9)
+										ind -= 9;
+									break;
+								case ALLEGRO_KEY_DOWN: case ALLEGRO_KEY_S:
+									if(ind <= 9*9-9)
+										ind += 9;
+									break;
+								case ALLEGRO_KEY_LEFT: case ALLEGRO_KEY_A:
+									if(ind % 9)
+										--ind;
+									break;
+								case ALLEGRO_KEY_RIGHT: case ALLEGRO_KEY_D:
+									if((ind % 9) < 8)
+										++ind;
+									break;
+							}
+							select(&cells[ind]);
+						}
+						break;
+					case ALLEGRO_KEY_TAB:
+						if(!mode_mod())
+						{
+							mode = EntryMode((mode+1)%NUM_ENT);
+							if(shape_mode && mode == ENT_CENTER)
+								mode = ENT_CORNER;
+						}
+						break;
+					case ALLEGRO_KEY_DELETE:
+					case ALLEGRO_KEY_BACKSPACE:
+						enter(0);
+						break;
+				}
+				break;
+			}
+			case ALLEGRO_EVENT_KEY_UP:
+				break;
+			case ALLEGRO_EVENT_KEY_CHAR:
+				break;
+		}
+		InputObject::key_event(ev);
+	}
 	u32 Grid::handle_ev(MouseEvent e)
 	{
 		u32 ret = MRET_OK;

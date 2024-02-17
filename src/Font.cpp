@@ -87,6 +87,26 @@ ALLEGRO_FONT* FontDef::gen_base() const
 	fontmap_base[*this] = f;
 	return f;
 }
+
+FontDef const& FontRef::get() const
+{
+	if(f) return *f;
+	if(indx && unsigned(*indx) < NUM_FONTS) return fonts[*indx];
+	
+	static FontDef def_ret(-20, false, BOLD_NONE);
+	error("INVALID COLOR ACCESS! Returning default font.");
+	return def_ret;
+}
+FontRef::FontRef()
+	: f(), indx()
+{}
+FontRef::FontRef(FontDef const& f)
+	: f(f), indx()
+{}
+FontRef::FontRef(const Font indx)
+	: f(), indx(indx)
+{}
+
 void scale_fonts()
 {
 	for(auto pair : fontmap)

@@ -265,7 +265,7 @@ struct RadioButton : public InputObject
 {
 	u16 radius;
 	string text;
-	FontDef font;
+	FontRef font;
 	static const u16 pad = 4;
 	static double fill_sel;
 	
@@ -277,10 +277,10 @@ struct RadioButton : public InputObject
 	RadioButton() : text(), font(FontDef(-20, false, BOLD_NONE)),
 		radius(4)
 	{}
-	RadioButton(string const& txt, FontDef fnt, u16 rad = 4)
+	RadioButton(string const& txt, FontRef fnt, u16 rad = 4)
 		: radius(rad), text(txt), font(fnt)
 	{}
-	RadioButton(u16 X, u16 Y, string const& txt, FontDef fnt, u16 rad = 4)
+	RadioButton(u16 X, u16 Y, string const& txt, FontRef fnt, u16 rad = 4)
 		: InputObject(X,Y), radius(rad), text(txt), font(fnt)
 	{}
 	
@@ -288,7 +288,7 @@ struct RadioButton : public InputObject
 };
 struct RadioSet : public Column
 {
-	RadioSet(vector<string> opts, FontDef fnt, u16 rad = 4)
+	RadioSet(vector<string> opts, FontRef fnt, u16 rad = 4)
 		: Column(0,0,0,2,ALLEGRO_ALIGN_LEFT)
 	{
 		init(opts, fnt, rad);
@@ -296,7 +296,7 @@ struct RadioSet : public Column
 	}
 	RadioSet(std::function<optional<u16>()> getter,
 		std::function<void(optional<u16>)> setter,
-		vector<string> opts, FontDef fnt, u16 rad = 4)
+		vector<string> opts, FontRef fnt, u16 rad = 4)
 		: Column(0,0,0,2,ALLEGRO_ALIGN_LEFT),
 		get_sel_proc(getter), set_sel_proc(setter)
 	{
@@ -310,35 +310,56 @@ private:
 	optional<u16> sel_ind;
 	std::function<optional<u16>()> get_sel_proc;
 	std::function<void(optional<u16>)> set_sel_proc;
-	void init(vector<string>& opts, FontDef fnt, u16 rad);
+	void init(vector<string>& opts, FontRef fnt, u16 rad);
 };
 struct CheckBox : public RadioButton
 {
 	static double fill_sel;
 	virtual void draw() const override;
 	CheckBox() : RadioButton() {}
-	CheckBox(string const& txt, FontDef fnt, u16 rad = 4)
+	CheckBox(string const& txt, FontRef fnt, u16 rad = 4)
 		: RadioButton(txt,fnt,rad)
 	{}
-	CheckBox(u16 X, u16 Y, string const& txt, FontDef fnt, u16 rad = 4)
+	CheckBox(u16 X, u16 Y, string const& txt, FontRef fnt, u16 rad = 4)
 		: RadioButton(X,Y,txt,fnt,rad)
 	{}
 };
 
-struct Button : public InputObject
+struct BaseButton : public InputObject
+{
+	void draw() const override = 0;
+	
+	BaseButton();
+	BaseButton(u16 X, u16 Y);
+	BaseButton(u16 X, u16 Y, u16 W, u16 H);
+	
+	u32 handle_ev(MouseEvent ev) override;
+};
+
+struct Button : public BaseButton
 {
 	string text;
-	FontDef font;
+	FontRef font;
 	
 	void draw() const override;
 	
 	Button();
 	Button(string const& txt);
-	Button(string const& txt, FontDef fnt);
-	Button(string const& txt, FontDef fnt, u16 X, u16 Y);
-	Button(string const& txt, FontDef fnt, u16 X, u16 Y, u16 W, u16 H);
+	Button(string const& txt, FontRef fnt);
+	Button(string const& txt, FontRef fnt, u16 X, u16 Y);
+	Button(string const& txt, FontRef fnt, u16 X, u16 Y, u16 W, u16 H);
+};
+
+struct BmpButton : public BaseButton
+{
+	ALLEGRO_BITMAP* bmp;
 	
-	u32 handle_ev(MouseEvent ev) override;
+	void draw() const override;
+	
+	BmpButton();
+	BmpButton(ALLEGRO_BITMAP* bmp);
+	BmpButton(ALLEGRO_BITMAP* bmp, u16 X, u16 Y);
+	BmpButton(ALLEGRO_BITMAP* bmp, u16 X, u16 Y, u16 W, u16 H);
 };
 
 struct ShapeRect : public InputObject
@@ -355,12 +376,12 @@ struct ShapeRect : public InputObject
 	ShapeRect(u16 X, u16 Y, u16 W, u16 H, Color c, Color cb, double border_thick);
 };
 
-void draw_text(string const& str, i8 align, FontDef font, Color c_txt, optional<Color> c_shadow = nullopt);
+void draw_text(string const& str, i8 align, FontRef font, Color c_txt, optional<Color> c_shadow = nullopt);
 struct Label : public InputObject
 {
 	string text;
 	i8 align;
-	FontDef font;
+	FontRef font;
 	std::function<string(Label& ref)> text_proc;
 	
 	void draw() const override;
@@ -372,14 +393,14 @@ struct Label : public InputObject
 	
 	Label();
 	Label(string const& txt);
-	Label(string const& txt, FontDef fd, i8 align = ALLEGRO_ALIGN_CENTRE);
-	Label(string const& txt, u16 X, u16 Y, FontDef fd, i8 align = ALLEGRO_ALIGN_CENTRE);
+	Label(string const& txt, FontRef fd, i8 align = ALLEGRO_ALIGN_CENTRE);
+	Label(string const& txt, u16 X, u16 Y, FontRef fd, i8 align = ALLEGRO_ALIGN_CENTRE);
 };
 
 struct TextField : public InputObject
 {
 	string content;
-	FontDef font;
+	FontRef font;
 	u16 cpos, cpos2; //cpos is cursor, cpos2 is anchor of selection
 	static const u16 pad = 2;
 	std::function<bool(string const&,string const&,char)> onValidate;
@@ -398,10 +419,10 @@ struct TextField : public InputObject
 	TextField(string const& txt) : InputObject(0,0,64,0), content(txt),
 		font(FontDef(-20, false, BOLD_NONE)), cpos(0), cpos2(0)
 	{}
-	TextField(string const& txt, FontDef fd)
+	TextField(string const& txt, FontRef fd)
 		: InputObject(0,0,64,0), content(txt), font(fd), cpos(0), cpos2(0)
 	{}
-	TextField(u16 X, u16 Y, u16 W, string const& txt, FontDef fd)
+	TextField(u16 X, u16 Y, u16 W, string const& txt, FontRef fd)
 		: InputObject(X,Y,W,0), content(txt), font(fd), cpos(0), cpos2(0)
 	{}
 	

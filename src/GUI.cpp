@@ -630,7 +630,7 @@ void RadioButton::draw() const
 	al_draw_filled_circle(CX, CY, RAD, bgc);
 	if(sel)
 		al_draw_filled_circle(CX, CY, RAD2, fgc);
-	ALLEGRO_FONT* f = font.get();
+	ALLEGRO_FONT* f = font.get().get();
 	Y = CY - al_get_font_line_height(f) / 2;
 	if(!text.empty())
 		al_draw_text(f, textc, X, Y, ALLEGRO_ALIGN_LEFT, text.c_str());
@@ -661,18 +661,18 @@ u16 RadioButton::ypos() const
 }
 u16 RadioButton::width() const
 {
-	ALLEGRO_FONT* f = font.get_base();
+	ALLEGRO_FONT* f = font.get().get_base();
 	return radius*2 + pad*2 + al_get_text_width(f, text.c_str());
 }
 u16 RadioButton::height() const
 {
-	ALLEGRO_FONT* f = font.get_base();
+	ALLEGRO_FONT* f = font.get().get_base();
 	return std::max(al_get_font_line_height(f), radius*2);
 }
 double RadioButton::fill_sel = 0.5;
 
 // RadioSet
-void RadioSet::init(vector<string>& opts, FontDef fnt, u16 rad)
+void RadioSet::init(vector<string>& opts, FontRef fnt, u16 rad)
 {
 	cont.clear();
 	u16 ind = 0;
@@ -740,13 +740,37 @@ void CheckBox::draw() const
 	al_draw_filled_rectangle(CX-RAD, CY-RAD, CX+RAD, CY+RAD, bgc);
 	if(sel)
 		al_draw_filled_rectangle(CX-RAD2, CY-RAD2, CX+RAD2, CY+RAD2, fgc);
-	ALLEGRO_FONT* f = font.get();
+	ALLEGRO_FONT* f = font.get().get();
 	Y = CY - al_get_font_line_height(f) / 2;
 	if(!text.empty())
 		al_draw_text(f, textc, X, Y, ALLEGRO_ALIGN_LEFT, text.c_str());
 }
 double CheckBox::fill_sel = 0.5;
 
+// BaseButton
+u32 BaseButton::handle_ev(MouseEvent e)
+{
+	switch(e)
+	{
+		case MOUSE_HOVER_ENTER:
+			flags |= FL_HOVERED;
+			break;
+		case MOUSE_HOVER_EXIT:
+			flags &= ~FL_HOVERED;
+			break;
+	}
+	return MRET_OK;
+}
+
+BaseButton::BaseButton()
+	: InputObject(0, 0, 96, 32)
+{}
+BaseButton::BaseButton(u16 X, u16 Y)
+	: InputObject(X, Y, 96, 32)
+{}
+BaseButton::BaseButton(u16 X, u16 Y, u16 W, u16 H)
+	: InputObject(X, Y, W, H)
+{}
 // Button
 void Button::draw() const
 {
@@ -772,41 +796,73 @@ void Button::draw() const
 	// Draw the border 
 	al_draw_rectangle(X, Y, X+W-1, Y+H-1, border, hov ? 2 : 1);
 	// Finally, the text
-	ALLEGRO_FONT* f = font.get();
+	ALLEGRO_FONT* f = font.get().get();
 	int tx = (X+W/2);
 	int ty = (Y+H/2)-(al_get_font_line_height(f)/2);
 	al_draw_text(f, fg, tx, ty, ALLEGRO_ALIGN_CENTRE, text.c_str());
 }
 
-u32 Button::handle_ev(MouseEvent e)
-{
-	switch(e)
-	{
-		case MOUSE_HOVER_ENTER:
-			flags |= FL_HOVERED;
-			break;
-		case MOUSE_HOVER_EXIT:
-			flags &= ~FL_HOVERED;
-			break;
-	}
-	return MRET_OK;
-}
-
 Button::Button()
-	: InputObject(0, 0, 96, 32), font(FontDef(-20, false, BOLD_NONE))
+	: BaseButton(), font(FontDef(-20, false, BOLD_NONE))
 {}
 Button::Button(string const& txt)
-	: InputObject(0, 0, 96, 32), font(FontDef(-20, false, BOLD_NONE)),
+	: BaseButton(), font(FontDef(-20, false, BOLD_NONE)),
 		text(txt)
 {}
-Button::Button(string const& txt, FontDef fnt)
-	: InputObject(0, 0, 96, 32), font(fnt), text(txt)
+Button::Button(string const& txt, FontRef fnt)
+	: BaseButton(), font(fnt), text(txt)
 {}
-Button::Button(string const& txt, FontDef fnt, u16 X, u16 Y)
-	: InputObject(X, Y, 96, 32), font(fnt), text(txt)
+Button::Button(string const& txt, FontRef fnt, u16 X, u16 Y)
+	: BaseButton(X, Y), font(fnt), text(txt)
 {}
-Button::Button(string const& txt, FontDef fnt, u16 X, u16 Y, u16 W, u16 H)
-	: InputObject(X, Y, W, H), font(fnt), text(txt)
+Button::Button(string const& txt, FontRef fnt, u16 X, u16 Y, u16 W, u16 H)
+	: BaseButton(X, Y, W, H), font(fnt), text(txt)
+{}
+
+// BmpButton
+void BmpButton::draw() const
+{
+	if(!visible()) return;
+	u16 X = x, Y = y, W = w, H = h;
+	scale_pos(X,Y,W,H);
+	
+	Color fg = C_BUTTON_FG;
+	Color bg = C_BUTTON_BG;
+	const Color border = C_BUTTON_BORDER;
+	bool dis = disabled();
+	bool sel = !dis && selected();
+	bool hov = !dis && (flags&FL_HOVERED);
+	if(sel)
+		std::swap(fg,bg);
+	else if(hov)
+		bg = C_BUTTON_HOVBG;
+	
+	// Fill the button
+	al_draw_filled_rectangle(X, Y, X+W-1, Y+H-1, bg);
+	// Draw the border 
+	al_draw_rectangle(X, Y, X+W-1, Y+H-1, border, hov ? 2 : 1);
+	// Finally, the image
+	if(bmp)
+	{
+		u16 bw = al_get_bitmap_width(bmp);
+		u16 bh = al_get_bitmap_height(bmp);
+		al_draw_scaled_bitmap(bmp,
+			0, 0, bw, bh,
+			X, Y, W, H, 0);
+	}
+}
+
+BmpButton::BmpButton()
+	: BaseButton(), bmp(nullptr)
+{}
+BmpButton::BmpButton(ALLEGRO_BITMAP* bmp)
+	: BaseButton(), bmp(bmp)
+{}
+BmpButton::BmpButton(ALLEGRO_BITMAP* bmp, u16 X, u16 Y)
+	: BaseButton(X, Y), bmp(bmp)
+{}
+BmpButton::BmpButton(ALLEGRO_BITMAP* bmp, u16 X, u16 Y, u16 W, u16 H)
+	: BaseButton(X, Y, W, H), bmp(bmp)
 {}
 
 // ShapeRect
@@ -834,9 +890,9 @@ ShapeRect::ShapeRect(u16 X, u16 Y, u16 W, u16 H, Color c, Color cb, double borde
 {}
 
 // Label
-void draw_text(u16 X, u16 Y, string const& str, i8 align, FontDef font, Color c_txt, optional<Color> c_shadow = nullopt)
+void draw_text(u16 X, u16 Y, string const& str, i8 align, FontRef font, Color c_txt, optional<Color> c_shadow = nullopt)
 {
-	ALLEGRO_FONT* f = font.get();
+	ALLEGRO_FONT* f = font.get().get();
 	if(c_shadow)
 		al_draw_text(f, c_shadow->get(), X + 2, Y + 2, align, str.c_str());
 	al_draw_text(f, c_txt, X, Y, align, str.c_str());
@@ -877,12 +933,12 @@ u16 Label::xpos() const
 }
 u16 Label::width() const
 {
-	ALLEGRO_FONT* f = font.get_base();
+	ALLEGRO_FONT* f = font.get().get_base();
 	return f ? al_get_text_width(f, text.c_str()) : 0;
 }
 u16 Label::height() const
 {
-	ALLEGRO_FONT* f = font.get_base();
+	ALLEGRO_FONT* f = font.get().get_base();
 	return f ? al_get_font_line_height(f) : 0;
 }
 Label::Label()
@@ -891,10 +947,10 @@ Label::Label()
 Label::Label(string const& txt)
 	: InputObject(), text(txt), align(ALLEGRO_ALIGN_CENTRE), text_proc()
 {}
-Label::Label(string const& txt, FontDef fd, i8 al)
+Label::Label(string const& txt, FontRef fd, i8 al)
 	: InputObject(), text(txt), align(al), font(fd), text_proc()
 {}
-Label::Label(string const& txt, u16 X, u16 Y, FontDef fd, i8 al)
+Label::Label(string const& txt, u16 X, u16 Y, FontRef fd, i8 al)
 	: InputObject(X,Y), text(txt), align(al), font(fd), text_proc()
 {}
 
@@ -916,7 +972,7 @@ void TextField::draw() const
 	
 	ClipRect clip;
 	
-	ALLEGRO_FONT* f = font.get();
+	ALLEGRO_FONT* f = font.get().get();
 	const Color bg = dis ? C_TF_DIS_BG : (hov ? C_TF_HOVBG : C_TF_BG);
 	const Color fg = dis ? C_TF_DIS_FG : C_TF_FG;
 	const Color border = C_TF_BORDER; 
@@ -972,7 +1028,7 @@ void TextField::draw() const
 }
 u16 TextField::height() const
 {
-	ALLEGRO_FONT* f = font.get_base();
+	ALLEGRO_FONT* f = font.get().get_base();
 	return (2*pad) + (f ? al_get_font_line_height(f) : 0);
 }
 
@@ -1038,7 +1094,7 @@ u32 TextField::handle_ev(MouseEvent e)
 				break;
 			u16 X = x+pad, Y = y+pad, W = w, H = height()-2*pad;
 			scale_pos(X,Y,W,H);
-			ALLEGRO_FONT* f = font.get();
+			ALLEGRO_FONT* f = font.get().get();
 			u16 ind;
 			char buf[2] = {0,0};
 			auto mx = cur_input->x;
@@ -1409,7 +1465,7 @@ void pop_inf(string const& title, string const& msg, optional<u16> w)
 //INITS
 void init_shapes() //For "Use Colors" mode
 {
-	al_set_new_bitmap_flags(ALLEGRO_MIPMAP);
+	al_set_new_bitmap_flags(ALLEGRO_MIPMAP|ALLEGRO_MIN_LINEAR);
 	for(int q = 0; q < 9; ++q)
 	{
 		shape_bmps[q] = al_create_bitmap(32*SHAPE_SCL,32*SHAPE_SCL);

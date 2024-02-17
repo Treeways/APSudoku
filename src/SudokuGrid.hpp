@@ -62,7 +62,6 @@ namespace Sudoku
 		void exit();
 		void clear_invalid();
 		void draw() const override;
-		void key_event(ALLEGRO_EVENT const& ev) override;
 		
 		void deselect();
 		void deselect(Cell* c);
@@ -72,6 +71,8 @@ namespace Sudoku
 		bool active() const;
 		void generate(Difficulty d);
 		
+		void enter(u8 val);
+		void key_event(ALLEGRO_EVENT const& ev) override;
 		u32 handle_ev(MouseEvent e) override;
 		
 		Grid(u16 X, u16 Y);
