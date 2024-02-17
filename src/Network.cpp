@@ -239,16 +239,14 @@ string ap_get_playername(int playerid)
 }
 string ap_get_itemname(int itemid)
 {
-	string slotgame = AP_GetSlotGame();
 	for(auto [p,id] : AP_GetItemMap())
 	{
 		auto [s,v] = p;
 		if(v != itemid)
 			continue;
-		if(s != slotgame)
-			continue;
 		return id;
 	}
+	error(std::format("Itemname lookup failed for item ID {}",itemid));
 	return "";
 }
 optional<string> ap_get_itemflagstr(int itemflags)
