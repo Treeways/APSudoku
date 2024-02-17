@@ -95,11 +95,14 @@ Difficulty diff = DIFF_NORMAL;
 EntryMode mode = ENT_ANSWER;
 EntryMode get_mode()
 {
+	EntryMode ret = mode;
 	if(cur_input->shift())
-		return shift_center ? ENT_CENTER : ENT_CORNER;
+		ret = shift_center ? ENT_CENTER : ENT_CORNER;
 	if(cur_input->ctrl_cmd())
-		return shift_center ? ENT_CORNER : ENT_CENTER;
-	return mode;
+		ret = shift_center ? ENT_CORNER : ENT_CENTER;
+	if(shape_mode && (ret == ENT_CENTER)) //shapes can't handle center!
+		ret = ENT_CORNER;
+	return ret;
 }
 bool mode_mod()
 {
@@ -197,6 +200,14 @@ bool do_connect()
 	connect_btn->flags &= ~FL_SELECTED;
 	return errtxt.empty();
 }
+
+void init_grid() //for debug convenience only
+{
+	for(int q = 0; q < 9; ++q)
+	{
+		grid->cells[(3+(q%3))+((3+(q/3))*9)].val = q+1;
+	}
+}
 void build_gui()
 {
 	using namespace Sudoku;
@@ -205,7 +216,8 @@ void build_gui()
 	const int GRID_Y2 = GRID_Y+GRID_SZ;
 	const int RGRID_X = GRID_X2 + 8;
 	FontDef font_l(-22, false, BOLD_NONE);
-	FontDef font_s(-15,false,BOLD_NONE);
+	FontDef font_m(-20, false, BOLD_NONE);
+	FontDef font_s(-15, false,BOLD_NONE);
 	{ // BG, to allow 'clicking off'
 		shared_ptr<ShapeRect> bg = make_shared<ShapeRect>(0,0,CANVAS_W,CANVAS_H,C_BACKGROUND);
 		bg->onMouse = mouse_killfocus;
@@ -417,7 +429,7 @@ void build_gui()
 		gui_objects[SCR_SUDOKU].push_back(diff_column);
 	}
 	{ // Entry mode toggle
-		shared_ptr<Column> entry_col = make_shared<Column>(RGRID_X,GRID_Y,0,2,ALLEGRO_ALIGN_LEFT);
+		shared_ptr<Column> entry_col = make_shared<Column>(RGRID_X,GRID_Y,0,1,ALLEGRO_ALIGN_LEFT);
 		
 		shared_ptr<Label> entry_lbl = make_shared<Label>("Entry Mode:", font_s, ALLEGRO_ALIGN_LEFT);
 		entry_col->add(entry_lbl);
@@ -435,7 +447,7 @@ void build_gui()
 					mode = EntryMode(*v);
 			},
 			vector<string>({"Answer","Center","Corner"}),
-			FontDef(-20, false, BOLD_NONE));
+			font_m);
 		entry_mode->select(ENT_ANSWER);
 		entry_mode->dis_proc = [](GUIObject const& ref) -> bool {return grid->focused() && mode_mod();};
 		entry_col->add(entry_mode);
@@ -448,6 +460,19 @@ void build_gui()
 				}
 				return ref.handle_ev(e);
 			};
+		
+		auto shapes_check = make_shared<CheckBox>("Shapes Mode", font_s);
+		if(shape_mode)
+			shapes_check->flags |= FL_SELECTED;
+		shapes_check->onMouse = [](InputObject& ref,MouseEvent e)
+			{
+				auto ret = ref.handle_ev(e);
+				shape_mode = (ref.flags & FL_SELECTED);
+				set_config_bool("GUI", "shape_mode", shape_mode);
+				save_cfg(CFG_ROOT);
+				return ret;
+			};
+		entry_col->add(shapes_check);
 		
 		gui_objects[SCR_SUDOKU].push_back(entry_col);
 	}
@@ -625,6 +650,7 @@ void setup_allegro();
 void save_cfg();
 volatile bool program_running = true;
 u64 cur_frame = 0;
+bool shape_mode = false;
 void run_events(bool& redraw)
 {
 	ALLEGRO_EVENT ev;
@@ -692,6 +718,7 @@ int main(int argc, char **argv)
 			std::chrono::system_clock::now().time_since_epoch()).count());
 		log("Building GUI...");
 		build_gui();
+		init_grid();
 		log("...built!");
 		PuzzleGen::init();
 		
@@ -770,6 +797,7 @@ void default_configs() // Resets configs to default
 	set_config_dbl("GUI", "start_scale", 2.0);
 	add_config_comment("GUI", "If 'shift' should do center-marks (true) or corner-marks (false)");
 	set_config_bool("GUI", "shift_center", false);
+	set_config_bool("GUI", "shape_mode", false);
 	Theme::reset();
 }
 void refresh_configs() // Uses values in the loaded configs to change the program
@@ -808,6 +836,7 @@ void refresh_configs() // Uses values in the loaded configs to change the progra
 	Theme::read_palette();
 	set_cfg(CFG_ROOT);
 	BOOL_READ(shift_center, "GUI", "shift_center")
+	BOOL_READ(shape_mode, "GUI", "shape_mode")
 	
 	if(wrote_any)
 		save_cfg();
@@ -868,6 +897,7 @@ void setup_allegro()
 	refresh_configs();
 	on_resize();
 	init_fonts();
+	init_shapes();
 }
 
 u64 rand(u64 range)
@@ -881,3 +911,4 @@ u64 rand(u64 min, u64 max)
 	u64 range = max-min+1;
 	return rand(range) + min;
 }
+

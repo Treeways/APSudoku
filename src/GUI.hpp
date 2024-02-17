@@ -5,6 +5,8 @@
 #include "Theme.hpp"
 extern double render_xscale, render_yscale;
 extern int render_resx, render_resy;
+const u8 SHAPE_SCL = 4, CELL_SZ = 32, SHAPE_SZ = SHAPE_SCL*CELL_SZ;
+extern ALLEGRO_BITMAP* shape_bmps[9];
 
 struct ClipRect
 {
@@ -13,6 +15,20 @@ struct ClipRect
 	void load();
 	ClipRect();
 	static void set(int X, int Y, int W, int H);
+};
+
+struct BmpBlender
+{
+	int op,src,dest;
+	int a_op, a_src, a_dest;
+	ALLEGRO_COLOR col;
+	void store();
+	void load();
+	BmpBlender();
+	static void set_col(ALLEGRO_COLOR const& col);
+	static void set(int OP, int SRC, int DEST);
+	static void set(int OP, int SRC, int DEST, int A_OP, int A_SRC, int A_DEST);
+	static void set_opacity_mode();
 };
 
 struct InputObject;
@@ -414,3 +430,14 @@ optional<u8> pop_confirm(string const& title,
 bool pop_okc(string const& title, string const& msg, optional<u16> w = nullopt);
 bool pop_yn(string const& title, string const& msg, optional<u16> w = nullopt);
 void pop_inf(string const& title, string const& msg, optional<u16> w = nullopt);
+
+void init_shapes();
+
+enum NumberShapes
+{
+	SH_CIRCLE,
+	SH_SEMICIRCLE,
+	SH_CRESCENT,
+	SH_MAX
+};
+
