@@ -143,7 +143,7 @@ BuiltPuzzle PuzzleGenFactory::get(Difficulty d)
 }
 void PuzzleGenFactory::init()
 {
-	log("Launching puzzle factories...");
+	log("Launching puzzle factories...", true);
 	for(u8 q = 0; q < NUM_E_FAC; ++q)
 	{
 		PuzzleGenFactory& fac = e_factories[q];
@@ -168,16 +168,16 @@ void PuzzleGenFactory::init()
 		fac.runtime = std::thread(&PuzzleGenFactory::run, &fac);
 		factories.insert(&fac);
 	}
-	log("...launched!");
+	log("...launched!", true);
 }
 void PuzzleGenFactory::shutdown()
 {
-	log("Closing puzzle factories...");
+	log("Closing puzzle factories...", true);
 	for(PuzzleGenFactory* f : factories)
 		f->running = false;
 	for(PuzzleGenFactory* f : factories)
 		f->runtime.join();
-	log("...closed!");
+	log("...closed!", true);
 }
 
 void init()

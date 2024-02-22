@@ -120,7 +120,7 @@ shared_ptr<Sudoku::Grid> grid;
 shared_ptr<Button> swap_btns[NUM_SCRS];
 shared_ptr<Button> connect_btn;
 shared_ptr<RadioSet> difficulty, entry_mode;
-shared_ptr<Label> connect_error;
+shared_ptr<Label> connect_error, hints_left;
 shared_ptr<CheckBox> deathlink_cbox;
 shared_ptr<TextField> deathlink_amnesty;
 shared_ptr<Column> entry_c_num;
@@ -679,8 +679,8 @@ void build_gui()
 			},
 			[](optional<u16> v){}
 		);
-		shared_ptr<DrawContainer> cont_on = make_shared<DrawContainer>();
-		shared_ptr<DrawContainer> cont_off = make_shared<DrawContainer>();
+		shared_ptr<DrawContainer> cont_uncon = make_shared<DrawContainer>();
+		shared_ptr<DrawContainer> cont_con = make_shared<DrawContainer>();
 		
 		connect_btn = make_shared<Button>("Connect", font_l);
 		shared_ptr<Button> disconnect_btn = make_shared<Button>("Disconnect", font_l);
@@ -718,8 +718,8 @@ void build_gui()
 				}
 				return ref.handle_ev(e);
 			};
-		cont_on->push_back(connect_btn);
-		cont_off->push_back(disconnect_btn);
+		cont_uncon->push_back(connect_btn);
+		cont_con->push_back(disconnect_btn);
 		
 		shared_ptr<Label> grid_status = make_shared<Label>(
 			"Currently mid-puzzle! Changing connection requires forfeiting!",
@@ -727,17 +727,22 @@ void build_gui()
 		grid_status->setx(connect_btn->xpos() + connect_btn->width() + 4);
 		grid_status->sety(connect_btn->ypos() + (connect_btn->height() - grid_status->height()) / 2);
 		grid_status->vis_proc = [](GUIObject const& ref) -> bool {return grid->active();};
-		cont_on->push_back(grid_status);
-		cont_off->push_back(grid_status);
+		cont_uncon->push_back(grid_status);
+		cont_con->push_back(grid_status);
 		
 		connect_error = make_shared<Label>("", font_s, ALLEGRO_ALIGN_LEFT);
 		connect_error->setx(connect_btn->xpos());
 		connect_error->sety(connect_btn->ypos() + connect_btn->height());
 		connect_error->type = TYPE_ERROR;
-		cont_on->push_back(connect_error);
+		cont_uncon->push_back(connect_error);
 		
-		sw->add(cont_on);
-		sw->add(cont_off);
+		hints_left = make_shared<Label>("", font_s, ALLEGRO_ALIGN_CENTER);
+		hints_left->setx(apc->xpos()+apc->width()/2);
+		hints_left->sety(apc->ypos() - hints_left->height() - 2);
+		cont_con->push_back(hints_left);
+		
+		sw->add(cont_uncon);
+		sw->add(cont_con);
 		gui_objects[SCR_CONNECT].push_back(sw);
 	}
 }
@@ -829,8 +834,6 @@ int main(int argc, char **argv)
 {
 	try
 	{
-		log("Program Start");
-		//
 		string exepath(argv[0]);
 		string wdir;
 		auto ind = exepath.find_last_of("/\\");
@@ -841,13 +844,13 @@ int main(int argc, char **argv)
 		log("Running in dir: \"" + wdir + "\"");
 		//
 		setup_allegro();
-		log("Allegro initialized successfully");
+		log("Allegro initialized successfully", true);
 		rng = std::mt19937(std::chrono::duration_cast<std::chrono::milliseconds>(
 			std::chrono::system_clock::now().time_since_epoch()).count());
-		log("Building GUI...");
+		log("Building GUI...", true);
 		build_gui();
 		init_grid();
-		log("...built!");
+		log("...built!", true);
 		PuzzleGen::init();
 		
 		InputState input_state;
