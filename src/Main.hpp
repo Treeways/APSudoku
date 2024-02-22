@@ -60,7 +60,7 @@ extern ALLEGRO_DISPLAY* display;
 
 extern vector<DrawContainer*> popups;
 extern u64 cur_frame;
-extern bool shape_mode, thicker_borders;
+extern bool shape_mode, thicker_borders, verbose_log;
 
 void dlg_draw();
 void dlg_render();
@@ -169,13 +169,14 @@ enum CCBG
 string build_ccode(CCFG fg, CCBG bg = LOG_BG_NONE);
 extern string default_ccode;
 inline const string CCODE_REVERT = "\033[0m";
-void clog(string const& hdr, string const& msg, string const& ccode);
-void log(string const& hdr, string const& msg);
-void error(string const& hdr, string const& msg);
+void clog(string const& hdr, string const& msg, string const& ccode, bool is_verbose = false);
+void log(string const& hdr, string const& msg, bool is_verbose = false);
+void error(string const& hdr, string const& msg, bool is_verbose = false);
 void fail(string const& hdr, string const& msg);
-void clog(string const& msg, string const& ccode);
-void log(string const& msg);
-void error(string const& msg);
+
+void clog(string const& msg, string const& ccode, bool is_verbose = false);
+void log(string const& msg, bool is_verbose = false);
+void error(string const& msg, bool is_verbose = false);
 void fail(string const& msg);
 
 class sudoku_exception : public std::exception

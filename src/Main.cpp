@@ -18,34 +18,37 @@ string build_ccode(CCFG fg, CCBG bg)
 	return s.str();
 }
 string default_ccode = build_ccode(LOG_FG_B_PURPLE,LOG_BG_NONE);
-void log(string const& hdr, string const& msg)
+void log(string const& hdr, string const& msg, bool is_verbose)
 {
-	std::cout << default_ccode << "[LOG][" << hdr << "] " << msg << CCODE_REVERT << std::endl;
+	if(verbose_log || !is_verbose)
+		std::cout << default_ccode << "[LOG][" << hdr << "] " << msg << CCODE_REVERT << std::endl;
 }
-void clog(string const& hdr, string const& msg, string const& ccode)
+void clog(string const& hdr, string const& msg, string const& ccode, bool is_verbose)
 {
-	std::cout << ccode << "[LOG][" << hdr << "] " << msg << CCODE_REVERT << std::endl;
+	if(verbose_log || !is_verbose)
+		std::cout << ccode << "[LOG][" << hdr << "] " << msg << CCODE_REVERT << std::endl;
 }
-void error(string const& hdr, string const& msg)
+void error(string const& hdr, string const& msg, bool is_verbose)
 {
-	std::cerr << build_ccode(LOG_FG_RED) << "[ERROR][" << hdr << "] " << msg << CCODE_REVERT << std::endl;
+	if(verbose_log || !is_verbose)
+		std::cerr << build_ccode(LOG_FG_RED) << "[ERROR][" << hdr << "] " << msg << CCODE_REVERT << std::endl;
 }
 void fail(string const& hdr, string const& msg)
 {
 	std::cerr << build_ccode(LOG_FG_RED) << "[FATAL][" << hdr << "] " << msg << CCODE_REVERT << std::endl;
 	exit(1);
 }
-void log(string const& msg)
+void log(string const& msg, bool is_verbose)
 {
-	log("APSudoku", msg);
+	log("APSudoku", msg, is_verbose);
 }
-void clog(string const& msg, string const& ccode)
+void clog(string const& msg, string const& ccode, bool is_verbose)
 {
-	clog("APSudoku", msg, ccode);
+	clog("APSudoku", msg, ccode, is_verbose);
 }
-void error(string const& msg)
+void error(string const& msg, bool is_verbose)
 {
-	error("APSudoku", msg);
+	error("APSudoku", msg, is_verbose);
 }
 void fail(string const& msg)
 {
@@ -728,7 +731,7 @@ void setup_allegro();
 void save_cfg();
 volatile bool program_running = true;
 u64 cur_frame = 0;
-bool shape_mode = false, thicker_borders = false;
+bool shape_mode = false, thicker_borders = false, verbose_log = false;
 void run_events(bool& redraw)
 {
 	ALLEGRO_EVENT ev;
@@ -877,6 +880,7 @@ void default_configs() // Resets configs to default
 	set_config_bool("GUI", "shift_center", false);
 	set_config_bool("GUI", "shape_mode", false);
 	set_config_bool("GUI", "thicker_borders", false);
+	set_config_bool("GUI", "verbose_log", false);
 	Theme::reset();
 }
 void refresh_configs() // Uses values in the loaded configs to change the program
@@ -917,6 +921,7 @@ void refresh_configs() // Uses values in the loaded configs to change the progra
 	BOOL_READ(shift_center, "GUI", "shift_center")
 	BOOL_READ(shape_mode, "GUI", "shape_mode")
 	BOOL_READ(thicker_borders, "GUI", "thicker_borders")
+	BOOL_READ(verbose_log, "GUI", "verbose_log")
 	
 	if(wrote_any)
 		save_cfg();
