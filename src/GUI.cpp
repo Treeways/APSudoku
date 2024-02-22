@@ -1569,7 +1569,7 @@ void init_shapes() //For "Use Colors" mode
 		float vert[8];
 		float border_vert[8];
 		double angle = 270_deg;
-		for(int q = 0; q < 10; ++q)
+		for(int q = 0; q < 4; ++q)
 		{
 			auto rad = q%2 ? DIAM_RAD2 : DIAM_RAD;
 			vert[q*2] = CX+vectorX(rad,angle);
@@ -1624,7 +1624,7 @@ void init_shapes() //For "Use Colors" mode
 		float vert[12];
 		float border_vert[12];
 		double angle = 0_deg;
-		for(int q = 0; q < 10; ++q)
+		for(int q = 0; q < 6; ++q)
 		{
 			auto rad = HEX_RAD;
 			vert[q*2] = CX+vectorX(rad,angle);
