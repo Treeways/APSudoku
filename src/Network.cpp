@@ -157,6 +157,13 @@ bool ap_deathlink()
 
 void grant_hint()
 {
+	if(missing_progressive.empty() && missing_basic.empty())
+	{
+		log("No hints left to earn!");
+		pop_inf("Hinted Out!","Nothing left to hint for this slot!");
+		return;
+	}
+	log("Loading hint data from server...", true);
 	AP_GetServerDataRequest req;
 	req.key = format("_read_hints_{}_{}", AP_GetPlayerTeam(), AP_GetPlayerID());
 	req.type = AP_DataType::Raw;
@@ -176,6 +183,8 @@ void grant_hint()
 		};
 	popup.run_proc = req_proc;
 	popup.run_loop();
+	log("...loaded, parsing...", true);
+	
 	
 	string slotgame = AP_GetSlotGame();
 	string const& val = *((string*)(req.value));
@@ -183,8 +192,12 @@ void grant_hint()
 	reader.parse(val, data);
 	for(Json::Value& v : data)
 		on_location_checked(v["location"].asInt());
+	log("...parsed, attempting to unlock hint...", true);
 	if(missing_progressive.empty() && missing_basic.empty())
+	{
+		log("No hints left to earn!");
 		pop_inf("Hinted Out!","Nothing left to hint for this slot!");
+	}
 	else
 	{
 		int basic = 0, prog = 0;
@@ -220,10 +233,11 @@ void grant_hint()
 		clog(h,build_ccode(LOG_FG_YELLOW));
 		pop_inf("Hint Earned:",h);
 	}
-	
+	log("Erasing popup...", true);
 	popups.pop_back();
-
+	log("Deleting req.value...", true);
 	delete (string*)req.value;
+	log("Exiting 'grant_hint()'", true);
 }
 
 

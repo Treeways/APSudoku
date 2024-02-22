@@ -1445,7 +1445,9 @@ optional<u8> pop_confirm(string const& title,
 	generate_popup(popup, ret, running, title, msg, strs, w);
 	
 	popup.run_proc = [&running](){return running;};
+	log("Opening popup...", true);
 	popup.run_loop();
+	log("Closing popup...", true);
 	popups.pop_back();
 	return ret;
 }
