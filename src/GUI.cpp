@@ -789,7 +789,14 @@ void Button::draw() const
 	else if(hov)
 		bg = C_BUTTON_HOVBG;
 	else if(dis)
+	{
 		fg = C_BUTTON_DISTXT;
+		bg = C_BUTTON_DISBG;
+	}
+	if(force_bg)
+		bg = *force_bg;
+	if(force_fg)
+		fg = *force_fg;
 	
 	// Fill the button
 	al_draw_filled_rectangle(X, Y, X+W-1, Y+H-1, bg);
@@ -836,6 +843,10 @@ void BmpButton::draw() const
 		std::swap(fg,bg);
 	else if(hov)
 		bg = C_BUTTON_HOVBG;
+	else if(dis)
+		bg = C_BUTTON_DISBG;
+	if(force_bg)
+		bg = *force_bg;
 	
 	// Fill the button
 	al_draw_filled_rectangle(X, Y, X+W-1, Y+H-1, bg);

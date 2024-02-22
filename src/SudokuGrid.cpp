@@ -285,6 +285,8 @@ namespace Sudoku
 	
 	void Grid::clear()
 	{
+		if(active())
+			exit();
 		for(Cell& c : cells)
 			c.clear();
 	}
@@ -292,6 +294,8 @@ namespace Sudoku
 	{
 		for(Cell& c : cells)
 			c.solution = 0;
+		if(onExit)
+			onExit(*this);
 	}
 	void Grid::clear_invalid()
 	{

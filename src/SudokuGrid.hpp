@@ -50,6 +50,7 @@ namespace Sudoku
 	{
 		static int sel_style;
 		Cell cells[9*9];
+		std::function<void(Grid&)> onExit;
 		
 		Cell* get(u8 row, u8 col);
 		Cell* get_hov();

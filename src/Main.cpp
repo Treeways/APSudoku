@@ -123,6 +123,8 @@ shared_ptr<RadioSet> difficulty, entry_mode;
 shared_ptr<Label> connect_error;
 shared_ptr<CheckBox> deathlink_cbox;
 shared_ptr<TextField> deathlink_amnesty;
+shared_ptr<Column> entry_c_num;
+shared_ptr<Column> entry_c_shape;
 vector<shared_ptr<TextField>> ap_fields;
 
 Screen curscr = SCR_SUDOKU;
@@ -269,6 +271,15 @@ void build_gui()
 				}
 				return ref.handle_ev(e);
 			};
+		grid->onExit = [](Grid& ref)
+			{
+				for(auto row : entry_c_num->cont)
+					for(auto b : static_pointer_cast<Row>(row)->cont)
+						b->custom_flags &= ~0b1;
+				for(auto row : entry_c_shape->cont)
+					for(auto b : static_pointer_cast<Row>(row)->cont)
+						b->custom_flags &= ~0b1;
+			};
 		gui_objects[SCR_SUDOKU].push_back(grid);
 		const int HELPBTN_WID = 32, HELPBTN_HEI = 24;
 		shared_ptr<Button> gridhelp = make_shared<Button>("?", font_l,
@@ -365,6 +376,7 @@ void build_gui()
 								"\nNo hints will be earnable."))
 								return MRET_OK;
 						}
+						grid->exit();
 						grid->generate(diff);
 						break;
 				}
@@ -494,10 +506,10 @@ void build_gui()
 		gui_objects[SCR_SUDOKU].push_back(entry_col);
 	}
 	{ // Number Entry Buttons
-		shared_ptr<Column> entry_c_num = make_shared<Column>(RGRID_X, GRID_Y, 0, 0, ALLEGRO_ALIGN_CENTER);
+		entry_c_num = make_shared<Column>(RGRID_X, GRID_Y, 0, 0, ALLEGRO_ALIGN_CENTER);
 		entry_c_num->vis_proc = [](GUIObject const& ref) -> bool {return !shape_mode;};
 		
-		shared_ptr<Column> entry_c_shape = make_shared<Column>(RGRID_X, GRID_Y, 0, 0, ALLEGRO_ALIGN_CENTER);
+		entry_c_shape = make_shared<Column>(RGRID_X, GRID_Y, 0, 0, ALLEGRO_ALIGN_CENTER);
 		entry_c_shape->vis_proc = [](GUIObject const& ref) -> bool {return shape_mode;};
 		
 		for(int row = 0; row < 3; ++row)
@@ -511,6 +523,26 @@ void build_gui()
 				shared_ptr<BmpButton> bmpbtn = make_shared<BmpButton>(shape_bmps[q], 0, 0, CELL_SZ, CELL_SZ);
 				btn->onMouse = [q](InputObject& ref,MouseEvent e)
 					{
+						Button& btn = static_cast<Button&>(ref);
+						bool marked_dis = btn.custom_flags&0b1;
+						if(e == MOUSE_RCLICK)
+						{
+							btn.custom_flags ^= 0b1; //temp disable
+							if(marked_dis)
+							{
+								btn.force_fg = nullopt;
+								btn.force_bg = nullopt;
+							}
+							else
+							{
+								btn.force_fg = C_BUTTON_DISTXT;
+								btn.force_bg = C_BUTTON_DISBG;
+							}
+							return MRET_OK;
+						}
+						else if(marked_dis)
+							return MRET_OK;
+						
 						if(e == MOUSE_LCLICK)
 						{
 							grid->enter(q+1);
@@ -521,6 +553,20 @@ void build_gui()
 					};
 				bmpbtn->onMouse = [q](InputObject& ref,MouseEvent e)
 					{
+						BmpButton& btn = static_cast<BmpButton&>(ref);
+						bool marked_dis = btn.custom_flags&0b1;
+						if(e == MOUSE_RCLICK)
+						{
+							btn.custom_flags ^= 0b1; //temp disable
+							if(marked_dis)
+								btn.force_bg = nullopt;
+							else
+								btn.force_bg = C_BUTTON_DISBG;
+							return MRET_OK;
+						}
+						else if(marked_dis)
+							return MRET_OK;
+						
 						if(e == MOUSE_LCLICK)
 						{
 							grid->enter(q+1);
@@ -535,6 +581,7 @@ void build_gui()
 			entry_c_num->add(r);
 			entry_c_shape->add(rs);
 		}
+		
 		shared_ptr<Button> del = make_shared<Button>("Delete", FONT_ANSWER, 0, 0, CELL_SZ*3, CELL_SZ);
 		del->onMouse = [](InputObject& ref,MouseEvent e)
 			{

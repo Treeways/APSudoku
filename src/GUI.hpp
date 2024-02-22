@@ -134,6 +134,7 @@ enum WidgType
 struct GUIObject
 {
 	u8 flags;
+	u8 custom_flags;
 	u8 type;
 	std::function<void()> onResizeDisplay;
 	//Obj is disabled if this returns true, OR flags&FL_DISABLED
@@ -164,7 +165,8 @@ struct GUIObject
 	virtual void focus(){}
 	bool focused() const;
 	GUIObject()
-		: flags(0), onResizeDisplay(), dis_proc(), sel_proc(), vis_proc(),
+		: flags(0), custom_flags(0), onResizeDisplay(),
+			dis_proc(), sel_proc(), vis_proc(),
 			draw_parent(nullptr), type(TYPE_NORMAL)
 	{}
 };
@@ -328,6 +330,7 @@ struct CheckBox : public RadioButton
 struct BaseButton : public InputObject
 {
 	void draw() const override = 0;
+	optional<Color> force_bg;
 	
 	BaseButton();
 	BaseButton(u16 X, u16 Y);
@@ -340,6 +343,7 @@ struct Button : public BaseButton
 {
 	string text;
 	FontRef font;
+	optional<Color> force_fg;
 	
 	void draw() const override;
 	
