@@ -37,6 +37,8 @@ static void check_location(int loc)
 }
 static void on_location_checked(int loc)
 {
+	if(hint_count() == 0)
+		return;
 	check_location(loc);
 	update_hint_str();
 }
@@ -227,14 +229,14 @@ bool ap_deathlink()
 
 void grant_hint()
 {
-	if(missing_progressive.empty() && missing_basic.empty())
+	if(hint_count() == 0)
 	{
 		log("No hints left to earn!");
 		pop_inf("Hinted Out!","Nothing left to hint for this slot!");
 		return;
 	}
-	read_hint_data(true);
-	if(missing_progressive.empty() && missing_basic.empty())
+	read_hint_data(true); //check for any `!hint` uses or etc to prevent duplicate hinting
+	if(hint_count() == 0)
 	{
 		log("No hints left to earn!");
 		pop_inf("Hinted Out!","Nothing left to hint for this slot!");

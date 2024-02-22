@@ -275,10 +275,19 @@ void build_gui()
 			{
 				for(auto row : entry_c_num->cont)
 					for(auto b : static_pointer_cast<Row>(row)->cont)
-						b->custom_flags &= ~0b1;
+					{
+						auto btn = static_pointer_cast<Button>(b);
+						btn->custom_flags &= ~0b1;
+						btn->force_bg = nullopt;
+						btn->force_fg = nullopt;
+					}
 				for(auto row : entry_c_shape->cont)
 					for(auto b : static_pointer_cast<Row>(row)->cont)
-						b->custom_flags &= ~0b1;
+					{
+						auto btn = static_pointer_cast<BmpButton>(b);
+						btn->custom_flags &= ~0b1;
+						btn->force_bg = nullopt;
+					}
 			};
 		gui_objects[SCR_SUDOKU].push_back(grid);
 		const int HELPBTN_WID = 32, HELPBTN_HEI = 24;
@@ -540,13 +549,14 @@ void build_gui()
 							}
 							return MRET_OK;
 						}
-						else if(marked_dis)
-							return MRET_OK;
 						
 						if(e == MOUSE_LCLICK)
 						{
-							grid->enter(q+1);
-							grid->focus();
+							if(!marked_dis)
+							{
+								grid->enter(q+1);
+								grid->focus();
+							}
 							return MRET_OK;
 						}
 						return ref.handle_ev(e);
@@ -564,13 +574,14 @@ void build_gui()
 								btn.force_bg = C_BUTTON_DISBG;
 							return MRET_OK;
 						}
-						else if(marked_dis)
-							return MRET_OK;
 						
 						if(e == MOUSE_LCLICK)
 						{
-							grid->enter(q+1);
-							grid->focus();
+							if(!marked_dis)
+							{
+								grid->enter(q+1);
+								grid->focus();
+							}
 							return MRET_OK;
 						}
 						return ref.handle_ev(e);
