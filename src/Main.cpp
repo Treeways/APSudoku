@@ -59,12 +59,12 @@ Hint::operator string() const
 {
 	auto flagstr = ap_get_itemflagstr(item_flags);
 	flagstr = flagstr ? (" "+*flagstr) : "";
-	return format("{} {} '{}'{} at '{}' for {}",
+	return format("{} {} '{}'{} for {} at '{}'",
 		ap_get_playername(finding_player),
 		found ? "found" : "will find",
 		ap_get_itemname(item), *flagstr,
-		ap_get_locationname(location),
-		ap_get_playername(receiving_player));
+		ap_get_playername(receiving_player),
+		ap_get_locationname(location));
 }
 Hint::Hint(Json::Value const& v)
 	: entrance(v["entrance"].asString()),
