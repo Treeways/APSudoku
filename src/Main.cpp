@@ -930,7 +930,7 @@ void default_configs() // Resets configs to default
 	set_config_bool("GUI", "shift_center", false);
 	set_config_bool("GUI", "shape_mode", false);
 	set_config_bool("GUI", "thicker_borders", false);
-	set_config_bool("GUI", "verbose_log", false);
+	set_config_bool("GUI", "verbose_log", true);
 	Theme::reset();
 }
 void refresh_configs() // Uses values in the loaded configs to change the program
