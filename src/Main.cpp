@@ -951,20 +951,29 @@ void default_configs() // Resets configs to default
 	ConfigStash stash;
 	
 	set_cfg(CFG_ROOT);
-	add_config_comment("GUI", "The multiplier for the window's starting size on launch");
-	set_config_dbl("GUI", "start_scale", 2.0);
-	add_config_comment("GUI", "If 'shift' should do center-marks (true) or corner-marks (false)");
-	set_config_bool("GUI", "shift_center", false);
-	set_config_bool("GUI", "shape_mode", false);
-	set_config_bool("GUI", "thicker_borders", false);
-	set_config_bool("GUI", "verbose_log", true);
-	
+	add_config_section("Archipelago");
+	add_config_comment("Archipelago", "Cache the Archipelago connection information, to remember it for next time");
 	set_config_bool("Archipelago", "do_cache_login", true);
+	add_config_comment("Archipelago", "Should the password also be cached? (does nothing if do_cache_login==false)");
 	set_config_bool("Archipelago", "do_cache_pwd", false);
+	add_config_comment("Archipelago", "The currently cached login info");
 	set_config_str("Archipelago", "cached_ip", "archipelago.gg");
 	set_config_str("Archipelago", "cached_port", "");
 	set_config_str("Archipelago", "cached_slot", "");
 	set_config_str("Archipelago", "cached_pwd", "");
+	
+	add_config_section("GUI");
+	add_config_comment("GUI", "The multiplier for the window's starting size on launch");
+	set_config_dbl("GUI", "start_scale", 2.0);
+	add_config_comment("GUI", "If 'shift' should do center-marks (true) or corner-marks (false)");
+	set_config_bool("GUI", "shift_center", false);
+	add_config_comment("GUI", "Use colored shapes instead of numbers");
+	set_config_bool("GUI", "shape_mode", false);
+	add_config_comment("GUI", "Thicken the borders of cells slightly");
+	set_config_bool("GUI", "thicker_borders", false);
+	add_config_comment("GUI", "Output extra info to the console");
+	set_config_bool("GUI", "verbose_log", true);
+	
 	Theme::reset();
 }
 void refresh_configs() // Uses values in the loaded configs to change the program
