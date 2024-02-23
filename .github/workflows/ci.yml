@@ -51,7 +51,7 @@ jobs:
               run: ls
             - name: CMake configure
               run: |
-                    sh ./initialize.sh
+                    bash ./initialize.sh
             - name: Build
               run: |
                     cd build

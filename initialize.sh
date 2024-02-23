@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Move to script directory.
 cd "$(dirname "$0")";
