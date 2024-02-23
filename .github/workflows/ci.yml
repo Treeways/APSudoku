@@ -15,11 +15,7 @@ jobs:
         submodules: 'recursive'
     - name: CMake configure (default version)
       run: |
-        mkdir build
-        cd build
-        cmake -G "Visual Studio 17 2022" -A Win32 `
-              -DUSE_ZLIB=OFF `
-              -DCMAKE_BUILD_TYPE=Release ..
+        ./initialize.bat
     - name: Build (default version)
       run: |
         cd build
@@ -27,11 +23,35 @@ jobs:
     - name: Create Artifact Folder
       run: |
         mkdir artifact
-        copy build/Release/APCpp.dll artifact
-        copy build/Release/APCpp.lib artifact
+        xcopy build/out_Release artifact /E /I /Q /Y
     - name: Create Build Artifact
       uses: actions/upload-artifact@v3
       with:
-        name: APCpp-win
+        name: APSudoku-win
+        path: |
+          artifact/*
+  build-linux:
+    name: Build (linux)
+
+    runs-on: ubuntu-22.04
+
+    steps:
+    - uses: actions/checkout@v1
+      with:
+        submodules: 'recursive'
+    - name: CMake configure (default version)
+      run: |
+        ./initialize.sh
+    - name: Build (default version)
+      run: |
+        cd build
+        cmake --build . --config Release
+    - name: Create Artifact Folder
+      run: |
+        cp -r build/out_Release artifact
+    - name: Create Build Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: APSudoku-win
         path: |
           artifact/*
