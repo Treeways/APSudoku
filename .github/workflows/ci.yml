@@ -1,7 +1,7 @@
 name: CI
 
 # Trigger this workflow on push or pull request
-on: [push, pull_request, workflow_dispatch]
+on: [push, pull_request]
 
 jobs:
     build-win:
@@ -25,10 +25,10 @@ jobs:
               run: |
                     import shutil
                     from pathlib import Path
-                    
+
                     path: Path = Path.cwd() / 'build/out_Release'
                     dest: Path = Path.cwd() / 'artifacts/APSudoku_Win_x64'
-                    
+
                     shutil.make_archive(
                         base_name = dest,
                         format = 'zip',
@@ -47,9 +47,11 @@ jobs:
             - uses: actions/checkout@v1
               with:
                 submodules: 'recursive'
+            - name: LS
+              run: ls
             - name: CMake configure
               run: |
-                    bash ./initialize.sh
+                    sh ./initialize.sh
             - name: Build
               run: |
                     cd build
@@ -59,10 +61,10 @@ jobs:
               run: |
                     import shutil
                     from pathlib import Path
-                    
+
                     path: Path = Path.cwd() / 'build/out_Release'
                     dest: Path = Path.cwd() / 'artifacts/APSudoku_Linux_x64'
-                    
+
                     shutil.make_archive(
                         base_name = dest,
                         format = 'gztar',
