@@ -49,8 +49,8 @@ jobs:
                 submodules: 'recursive'
             - name: LS
               run: ls
-            - name: Install Mesa Dependencies
-              run: sudo apt-get install -y libgl1-mesa-dev libegl1-mesa-dev
+            - name: Install Graphics Dependencies
+              run: sudo apt-get install -y libgl1-mesa-dev libegl1-mesa-dev libxcursor-dev
             - name: CMake configure
               run: |
                     bash ./initialize.sh
