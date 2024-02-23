@@ -23,13 +23,13 @@ jobs:
     - name: Create Artifact Folder
       run: |
         mkdir artifact
-        xcopy build/out_Release artifact /E /I /Q /Y
+        xcopy "build/out_Release" "artifact" /E /I /Q /Y
     - name: Create Build Artifact
       uses: actions/upload-artifact@v3
       with:
         name: APSudoku-win
         path: |
-          artifact/*
+          "artifact/*"
   build-linux:
     name: Build (linux)
 
@@ -41,7 +41,7 @@ jobs:
         submodules: 'recursive'
     - name: CMake configure (default version)
       run: |
-        ./initialize.sh
+        bash ./initialize.sh
     - name: Build (default version)
       run: |
         cd build
