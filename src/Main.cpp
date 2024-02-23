@@ -635,6 +635,22 @@ void build_gui()
 			{"Slot:","",nullptr},
 			{"Passwd:","",nullptr}
 		};
+		
+		if(get_config_bool("Archipelago", "do_cache_login").value_or(false))
+		{
+			if(auto str = get_config_str("Archipelago", "cached_ip"))
+				std::get<1>(p[0]) = *str;
+			if(auto str = get_config_str("Archipelago", "cached_port"))
+				std::get<1>(p[1]) = *str;
+			if(auto str = get_config_str("Archipelago", "cached_slot"))
+				std::get<1>(p[2]) = *str;
+			if(get_config_bool("Archipelago", "do_cache_pwd").value_or(false))
+			{
+				if(auto str = get_config_str("Archipelago", "cached_pwd"))
+					std::get<1>(p[3]) = *str;
+			}
+		}
+		
 		ap_fields.clear();
 		for(auto [label,defval,valproc] : p)
 		{
@@ -942,6 +958,13 @@ void default_configs() // Resets configs to default
 	set_config_bool("GUI", "shape_mode", false);
 	set_config_bool("GUI", "thicker_borders", false);
 	set_config_bool("GUI", "verbose_log", true);
+	
+	set_config_bool("Archipelago", "do_cache_login", true);
+	set_config_bool("Archipelago", "do_cache_pwd", false);
+	set_config_str("Archipelago", "cached_ip", "archipelago.gg");
+	set_config_str("Archipelago", "cached_port", "");
+	set_config_str("Archipelago", "cached_slot", "");
+	set_config_str("Archipelago", "cached_pwd", "");
 	Theme::reset();
 }
 void refresh_configs() // Uses values in the loaded configs to change the program

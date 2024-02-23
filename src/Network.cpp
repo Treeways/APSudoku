@@ -1,6 +1,7 @@
 #include "Main.hpp"
 #include "GUI.hpp"
 #include "Network.hpp"
+#include "Config.hpp"
 #include "../Archipelago.h"
 #include <thread>
 
@@ -178,6 +179,15 @@ void do_ap_disconnect()
 void do_ap_connect(string const& _ip, string const& _port,
 	string const& slot, string const& pwd, optional<int> deathlink)
 {
+	if(get_config_bool("Archipelago", "do_cache_login").value_or(false))
+	{
+		set_config_str("Archipelago", "cached_ip", _ip);
+		set_config_str("Archipelago", "cached_port", _port);
+		set_config_str("Archipelago", "cached_slot", slot);
+		if(get_config_bool("Archipelago", "do_cache_pwd").value_or(false))
+			set_config_str("Archipelago", "cached_pwd", pwd);
+		save_cfg(CFG_ROOT);
+	}
 	string& errtxt = connect_error->text;
 	string port = _port.empty() ? "38281" : _port;
 	string ip = _ip.empty() ? "archipelago.gg" : _ip;
