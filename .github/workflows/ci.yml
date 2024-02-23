@@ -13,7 +13,7 @@ jobs:
             - uses: actions/checkout@v1
               with:
                 submodules: 'recursive'
-            - name: CMake configure (default version)
+            - name: CMake configure
               run: |
                     ./initialize.bat
             - name: Build
@@ -35,23 +35,22 @@ jobs:
                         root_dir = path
                         )
             - uses: actions/upload-artifact@v4
-              if: always()
               name: win_x64_output
               with:
                 path: 'artifacts/*'
     build-linux:
         name: Build (linux)
 
-        runs-on: ubuntu-22.04
+        runs-on: ubuntu-latest
 
         steps:
             - uses: actions/checkout@v1
               with:
                 submodules: 'recursive'
-            - name: CMake configure (default version)
+            - name: CMake configure
               run: |
                     bash ./initialize.sh
-            - name: Build (default version)
+            - name: Build
               run: |
                     cd build
                     cmake --build . --config Release
@@ -70,7 +69,6 @@ jobs:
                         root_dir = path
                         )
             - uses: actions/upload-artifact@v4
-              if: always()
               name: linux_x64_output
               with:
                 path: 'artifacts/*'
