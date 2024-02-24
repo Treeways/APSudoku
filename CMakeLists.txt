@@ -86,6 +86,9 @@ if (WIN32)
     target_link_libraries(APCpp ws2_32)
 endif(WIN32)
 
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 # APSudoku setup
 project(APSudoku)
 add_executable(APSudoku

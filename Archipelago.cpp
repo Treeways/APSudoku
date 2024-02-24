@@ -20,7 +20,6 @@
 #include <functional>
 #include <utility>
 #include <vector>
-#include <format>
 
 constexpr int AP_OFFLINE_SLOT = 1404;
 #define AP_OFFLINE_NAME "You"
