@@ -55,7 +55,7 @@ jobs:
             - name: Build
               run: |
                     cd build
-                    cmake --build . --std=gnu++20 --config Release
+                    cmake --build . --config Release
             - name: Package
               shell: python
               run: |
