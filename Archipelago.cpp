@@ -20,6 +20,7 @@
 #include <functional>
 #include <utility>
 #include <vector>
+#include <format>
 
 constexpr int AP_OFFLINE_SLOT = 1404;
 #define AP_OFFLINE_NAME "You"
@@ -216,7 +217,7 @@ std::set<int64_t> const& AP_GetMissingLocations()
 void AP_Init(const char* ip, const char* game, const char* player_name, const char* passwd) {
     if(init) AP_Disconnect();
     multiworld = true;
-    
+
     uint64_t milliseconds_since_epoch = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
     rando = std::mt19937((unsigned int)milliseconds_since_epoch);
 
@@ -778,7 +779,7 @@ bool parse_response(std::string msg, std::string &request) {
                     }
                     (*map_slotdata_callback_mapintint.at(key))(out);
                 }
-                
+
             }
 
             resync_serverdata_request.key = "APCppLastRecv" + ap_player_name + std::to_string(ap_player_id);
@@ -1095,10 +1096,10 @@ void updateAPTags() {
     Json::Value update_tags;
     update_tags["cmd"] = "ConnectUpdate";
     update_tags["tags"] = Json::arrayValue;
-    
+
     for(std::string const& tag : ap_tags)
         update_tags["tags"].append(tag);
-    
+
     req_t.append(update_tags);
     APSend(writer.write(req_t));
 }
