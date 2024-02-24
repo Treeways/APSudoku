@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <set>
 #include <functional>
+#include <format>
 
 void AP_Init(const char*, const char*, const char*, const char*);
 void AP_Init(const char*);
