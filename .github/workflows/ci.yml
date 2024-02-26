@@ -1,43 +1,43 @@
 name: CI
 
 # Trigger this workflow on push or pull request
-on: [push, pull_request]
+on: [push, pull_request, workflow_dispatch]
 
 jobs:
-    # build-win:
-    #     name: Build (windows-latest)
+    build-win:
+        name: Build (windows-latest)
 
-    #     runs-on: windows-latest
+        runs-on: windows-latest
 
-    #     steps:
-    #         - uses: actions/checkout@v1
-    #           with:
-    #             submodules: 'recursive'
-    #         - name: CMake configure
-    #           run: |
-    #                 ./initialize.bat
-    #         - name: Build
-    #           run: |
-    #                 cd build
-    #                 cmake --build . --config Release
-    #         - name: Package
-    #           shell: python
-    #           run: |
-    #                 import shutil
-    #                 from pathlib import Path
+        steps:
+            - uses: actions/checkout@v1
+              with:
+                submodules: 'recursive'
+            - name: CMake configure
+              run: |
+                    ./initialize.bat
+            - name: Build
+              run: |
+                    cd build
+                    cmake --build . --config Release
+            - name: Package
+              shell: python
+              run: |
+                    import shutil
+                    from pathlib import Path
 
-    #                 path: Path = Path.cwd() / 'build/out_Release'
-    #                 dest: Path = Path.cwd() / 'artifacts/APSudoku_Win_x64'
+                    path: Path = Path.cwd() / 'build/out_Release'
+                    dest: Path = Path.cwd() / 'artifacts/APSudoku_Win_x64'
 
-    #                 shutil.make_archive(
-    #                     base_name = dest,
-    #                     format = 'zip',
-    #                     root_dir = path
-    #                     )
-    #         - uses: actions/upload-artifact@v4
-    #           name: win_x64_output
-    #           with:
-    #             path: 'artifacts/*'
+                    shutil.make_archive(
+                        base_name = dest,
+                        format = 'zip',
+                        root_dir = path
+                        )
+            - uses: actions/upload-artifact@v4
+              name: win_x64_output
+              with:
+                path: 'artifacts/*'
     build-linux:
         name: Build (linux)
 
