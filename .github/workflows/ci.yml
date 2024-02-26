@@ -42,10 +42,6 @@ jobs:
         name: Build (linux)
 
         runs-on: ubuntu-latest
-        # strategy:
-        #   fail-fast: false
-        #   matrix:
-        #     compiler: [g++, clang++]
 
         steps:
             - uses: actions/checkout@v1
@@ -54,7 +50,6 @@ jobs:
             - name: Install Dependencies
               run: |
                 sudo apt-get install -y libgl1-mesa-dev libegl1-mesa-dev libxcursor-dev libc++-dev libc++abi-dev gcc-13
-                whereis gcc-13
                 sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 60 --slave /usr/bin/g++ g++ /usr/bin/g++-13
             - name: CMake configure
               run: |
@@ -67,10 +62,13 @@ jobs:
               run: |
                     cd build
                     cmake --build . --config Release
-            # - name: Build (Make)
-            #   run: |
-            #         cd build
-            #         make
+            - name: LS
+              run: |
+                pwd
+                ls
+                cd ..
+                pwd
+                ls
             - name: Package
               shell: python
               run: |
