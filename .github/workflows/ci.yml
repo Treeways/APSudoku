@@ -42,10 +42,10 @@ jobs:
         name: Build (linux)
 
         runs-on: ubuntu-latest
-        strategy:
-          fail-fast: false
-          matrix:
-            compiler: [g++, clang++]
+        # strategy:
+        #   fail-fast: false
+        #   matrix:
+        #     compiler: [g++, clang++]
 
         steps:
             - uses: actions/checkout@v1
@@ -56,12 +56,16 @@ jobs:
             - name: CMake configure
               run: |
                     bash ./initialize.sh
-            - name: Build
-              env:
-                CXX: ${{ matrix.compiler }}
+            # - name: Build
+            #   env:
+            #     CXX: ${{ matrix.compiler }}
+            #   run: |
+            #         cd build
+            #         cmake --build . --config Release
+            - name: Build (Make)
               run: |
                     cd build
-                    cmake --build . --config Release
+                    make
             - name: Package
               shell: python
               run: |
