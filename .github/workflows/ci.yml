@@ -84,3 +84,4 @@ jobs:
               name: linux_x64_output
               with:
                 path: 'artifacts/*'
+
