@@ -41,10 +41,11 @@ jobs:
     build-linux:
         name: Build (linux)
 
-        runs-on: ubuntu-20.04
+        runs-on: ubuntu-latest
         strategy:
+          fail-fast: false
           matrix:
-            compiler: [clang++]
+            compiler: [g++, clang++]
 
         steps:
             - uses: actions/checkout@v1
