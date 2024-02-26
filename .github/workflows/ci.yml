@@ -55,7 +55,7 @@ jobs:
               run: |
                 sudo apt-get install -y libgl1-mesa-dev libegl1-mesa-dev libxcursor-dev libc++-dev libc++abi-dev gcc-13
                 whereis gcc-13
-                sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13.1.0 60 --slave /usr/bin/g++ g++ /usr/bin/g++-13.1.0
+                sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 60 --slave /usr/bin/g++ g++ /usr/bin/g++-13
             - name: CMake configure
               run: |
                     bash ./initialize.sh
