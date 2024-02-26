@@ -52,36 +52,39 @@ jobs:
               with:
                 submodules: 'recursive'
             - name: Install Dependencies
-              run: sudo apt-get install -y libgl1-mesa-dev libegl1-mesa-dev libxcursor-dev libc++-dev libc++abi-dev gcc-13
+              run: |
+                sudo apt-get install -y libgl1-mesa-dev libegl1-mesa-dev libxcursor-dev libc++-dev libc++abi-dev gcc-13
             - name: CMake configure
               run: |
                     bash ./initialize.sh
-            - name: Build
-              env:
-                CXX: g++
-              run: |
-                    cd build
-                    cmake --build . --config Release
-            # - name: Build (Make)
+            - name: G++ Version
+              run: g++ -v
+            # - name: Build
+            #   env:
+            #     CXX: g++
             #   run: |
             #         cd build
-            #         make
-            - name: Package
-              shell: python
-              run: |
-                    import shutil
-                    from pathlib import Path
+            #         cmake --build . --config Release
+            # # - name: Build (Make)
+            # #   run: |
+            # #         cd build
+            # #         make
+            # - name: Package
+            #   shell: python
+            #   run: |
+            #         import shutil
+            #         from pathlib import Path
 
-                    path: Path = Path.cwd() / 'build/out_Release'
-                    dest: Path = Path.cwd() / 'artifacts/APSudoku_Linux_x64'
+            #         path: Path = Path.cwd() / 'build/out_Release'
+            #         dest: Path = Path.cwd() / 'artifacts/APSudoku_Linux_x64'
 
-                    shutil.make_archive(
-                        base_name = dest,
-                        format = 'gztar',
-                        root_dir = path
-                        )
-            - uses: actions/upload-artifact@v4
-              name: linux_x64_output
-              with:
-                path: 'artifacts/*'
+            #         shutil.make_archive(
+            #             base_name = dest,
+            #             format = 'gztar',
+            #             root_dir = path
+            #             )
+            # - uses: actions/upload-artifact@v4
+            #   name: linux_x64_output
+            #   with:
+            #     path: 'artifacts/*'
 
