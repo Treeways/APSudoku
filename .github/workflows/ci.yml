@@ -74,7 +74,7 @@ jobs:
                     import shutil
                     from pathlib import Path
 
-                    path: Path = Path.cwd() / 'build/out_Release'
+                    path: Path = Path.cwd() / 'build/out_RelWithDebInfo'
                     dest: Path = Path.cwd() / 'artifacts/APSudoku_Linux_x64'
 
                     shutil.make_archive(
@@ -82,6 +82,12 @@ jobs:
                         format = 'gztar',
                         root_dir = path
                         )
+            - name: LS 2
+              run: |
+                pwd
+                ls build/
+                pwd
+                ls
             - uses: actions/upload-artifact@v4
               name: linux_x64_output
               with:
