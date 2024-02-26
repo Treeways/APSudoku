@@ -56,8 +56,6 @@ jobs:
             - name: CMake Configure
               run: |
                     bash ./initialize.sh
-            - name: G++ Version
-              run: g++ -v
             - name: Build
               env:
                 CXX: g++
