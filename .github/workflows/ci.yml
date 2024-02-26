@@ -65,8 +65,7 @@ jobs:
             - name: LS
               run: |
                 pwd
-                ls
-                cd ..
+                ls build/
                 pwd
                 ls
             - name: Package
